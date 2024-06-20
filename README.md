@@ -4,7 +4,7 @@ Python bindings for [geogram](https://github.com/BrunoLevy/geogram)
 # Note
 This is work in progress, be patient, I first need to understand how wheels work (that is, precompiled Python packages), how to generate them, how to publish them so that one can "pip install" them...
 
-If you need to use geogram in Python *now** (I don't know how much time it will take me to learn all these things), there is a possibility: you can use [gompy](https://github.com/BrunoLevy/GraphiteThree/wiki/python), that is, Graphite's object model projected into Python.
+If you need to use geogram in Python **now** (I don't know how much time it will take me to learn all these things), there is a possibility: you can use [gompy](https://github.com/BrunoLevy/GraphiteThree/wiki/python), that is, Graphite's object model projected into Python.
 
 For now this repository only contains notes and links to documents and projects (thank you Twitter friends).
 
