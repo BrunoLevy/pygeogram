@@ -274,7 +274,24 @@ def draw_graphite_gui():
                 scene_graph.current_object = objname
                 command.set(scene_graph.I.Scene.duplicate_current)
 
-            ps.imgui.Separator()
+            if ps.imgui.MenuItem('transform object'):
+                print(dir(ps.get_surface_mesh(objname)))
+
+            if ps.imgui.MenuItem('commit transform'):
+                surface_mesh = ps.get_surface_mesh(objname)
+                xform = surface_mesh.get_transform()
+                object = getattr(scene_graph.objects,objname)
+                object_vertices = np.asarray(object.I.Editor.get_points())
+                vertices = np.c_[object_vertices, np.ones(object_vertices.shape[0])]
+                vertices = np.matmul(vertices,np.transpose(xform))
+                weights = vertices[:,-1]
+                vertices = vertices[:,:-1]
+                vertices = vertices/weights[:,None]
+                np.copyto(object_vertices,vertices)
+                surface_mesh.reset_transform()
+                surface_mesh.update_vertex_positions(object_vertices)
+                
+            ps.imgui.Separator() 
             command.draw_object_commands_menus(getattr(scene_graph.objects,objname))
             ps.imgui.EndPopup()	      
     ps.imgui.EndListBox()
