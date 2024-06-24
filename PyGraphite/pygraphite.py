@@ -54,7 +54,7 @@ class GraphiteCommand:
                         mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
                     )
                 ps.imgui.EndListBox()
-            if ps.imgui.Button('Apply'):
+            if ps.imgui.Button('OK'):
                 grob = self.request.object().grob                
                 unregister_graphite_objects()
                 self.invoke()
@@ -62,10 +62,23 @@ class GraphiteCommand:
                     self.request.object().grob.I.Surface.triangulate()
                 register_graphite_objects()
                 command.reset()
-                ps.imgui.SameLine()
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Apply and close command')
+            ps.imgui.SameLine()
+            if ps.imgui.Button('Apply'):
+                grob = self.request.object().grob                
+                unregister_graphite_objects()
+                self.invoke()
+                if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+                    self.request.object().grob.I.Surface.triangulate()
+                register_graphite_objects()
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Apply and leave command open')
             ps.imgui.SameLine()
             if ps.imgui.Button('Cancel'):
                 command.reset()
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Close command')
 
     """ Handles the GUI for a parameter """
     def arg_handler(self, property_name, mtype, tooltip):
@@ -282,14 +295,14 @@ def draw_graphite_gui():
                 xform = surface_mesh.get_transform()
                 object = getattr(scene_graph.objects,objname)
                 object_vertices = np.asarray(object.I.Editor.get_points())
-                vertices = np.c_[object_vertices, np.ones(object_vertices.shape[0])]
-                vertices = np.matmul(vertices,np.transpose(xform))
-                weights = vertices[:,-1]
-                vertices = vertices[:,:-1]
-                vertices = vertices/weights[:,None]
-                np.copyto(object_vertices,vertices)
-                surface_mesh.reset_transform()
-                surface_mesh.update_vertex_positions(object_vertices)
+                vertices = np.c_[object_vertices, np.ones(object_vertices.shape[0])] # add a column of 1
+                vertices = np.matmul(vertices,np.transpose(xform))    # transform all the vertices
+                weights = vertices[:,-1]                              # get 4th column
+                vertices = vertices[:,:-1]                            # get the rest
+                vertices = vertices/weights[:,None]                   # divide by the weights
+                np.copyto(object_vertices,vertices)                   # inject new vertices into mesh
+                surface_mesh.reset_transform()                        # reset polyscope xform to identity
+                surface_mesh.update_vertex_positions(object_vertices) # tell polyscope that vertices have changed
                 
             ps.imgui.Separator() 
             command.draw_object_commands_menus(getattr(scene_graph.objects,objname))
