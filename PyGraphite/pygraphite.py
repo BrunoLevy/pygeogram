@@ -47,9 +47,14 @@ class GraphiteCommand:
                 objname = grob.name
                 
             ps.imgui.Text('Object: '  + objname)
-            ps.imgui.Text('Command: ' + self.request.method().name.replace('_',' '))
-            if ps.imgui.IsItemHovered() and self.request.method().has_custom_attribute('help'):
-                ps.imgui.SetTooltip(self.request.method().custom_attribute_value('help'))
+            ps.imgui.Text(
+                'Command: ' + self.request.method().name.replace('_',' ')
+            )
+            if (ps.imgui.IsItemHovered() and
+                self.request.method().has_custom_attribute('help')):
+                ps.imgui.SetTooltip(
+                    self.request.method().custom_attribute_value('help')
+                )
             mmethod = self.request.method()
             if mmethod.nb_args() != 0:
                 nb_standard_args = 0
@@ -67,20 +72,30 @@ class GraphiteCommand:
                     tooltip = None
                     if not self.ith_arg_is_advanced(i):
                         if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                            tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
+                            tooltip = \
+                                 mmethod.ith_arg_custom_attribute_value(i,'help')
                         self.arg_handler(
-                            mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                            mmethod.ith_arg_name(i),
+                            mmethod.ith_arg_type(i), tooltip
                         )
                 if has_advanced_args:
-                    if ps.imgui.TreeNode('Advanced'+'##'+objname+'.'+mmethod.name):
+                    if ps.imgui.TreeNode(
+                            'Advanced'+'##'+objname+'.'+mmethod.name
+                    ):
                         ps.imgui.TreePop()
                         for i in range(mmethod.nb_args()):
                             tooltip = None
                             if self.ith_arg_is_advanced(i):
-                                if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                                    tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
+                                if mmethod.ith_arg_has_custom_attribute(
+                                        i,'help'
+                                ):
+                                    tooltip = \
+                                        mmethod.ith_arg_custom_attribute_value(
+                                            i,'help'
+                                        )
                                 self.arg_handler(
-                                    mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                                    mmethod.ith_arg_name(i),
+                                    mmethod.ith_arg_type(i), tooltip
                                 )
                 ps.imgui.EndListBox()
             if ps.imgui.Button('OK'):
@@ -248,7 +263,8 @@ class GraphiteCommand:
                 mclass = mslot.container_meta_class()
                 if ps.imgui.MenuItem(k.replace('_',' ')):
                     self.set(getattr(o.query_interface(mclass.name),mslot.name))
-                if ps.imgui.IsItemHovered() and mslot.has_custom_attribute('help'):
+                if (ps.imgui.IsItemHovered() and
+                    mslot.has_custom_attribute('help')):
                     ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
             
     """ Draws menus for all commands associated with a Graphite object """
@@ -274,7 +290,10 @@ class GraphiteCommand:
     def draw_request_menuitem(self, request):
         if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
             self.set(request)
-        if ps.imgui.IsItemHovered() and request.method().has_custom_attribute('help'):
+        if (
+                ps.imgui.IsItemHovered() and
+                request.method().has_custom_attribute('help')
+        ):
             ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
 
     """ Inserts an entry in a menumap """
@@ -297,7 +316,8 @@ class GraphiteCommand:
         grob_class_name = grob_meta_class.name
         commands_str = gom.get_environment_value(grob_class_name + '_commands')
         for command_class_name in commands_str.split(';'):
-            if command_class_name != 'OGF::SceneGraphSceneCommands': # skipped, already in context menu
+            # skipped, already in context menu
+            if command_class_name != 'OGF::SceneGraphSceneCommands': 
                 default_menu_name = command_class_name
                 mclass = gom.resolve_meta_type(command_class_name)
                 # Command may be associated with a base class, so we find
@@ -315,16 +335,21 @@ class GraphiteCommand:
                        submenu_name.removesuffix('/')
                        if submenu_name[0] == '/':
                           menu_name = submenu_name[1:]
-                          # Particular case: SceneGraph commands starting with '/',
-                          # to be rooted in the menu bar, are stored in the '/menubar'
-                          # menumap (and handled with
-                          # specific code in graphite_gui.draw_menu_bar())
+                          # Comment for Graphite (not relevant here, but kept):
+                          # Particular case: SceneGraph commands starting
+                          # with '/', to be rooted in the menu bar,
+                          # are stored in the '/menubar' menumap
+                          # (and handled with specific code in
+                          #  graphite_gui.draw_menu_bar())
                           if grob_meta_class.name == 'OGF::SceneGraph':
                              menu_name = 'menubar/'+menu_name
                        else:
                           menu_name = menu_name + '/' + submenu_name
-                    if (gom.meta_types.OGF.Object.find_member(mslot.name) == None and
-                        gom.meta_types.OGF.Node.find_member(mslot.name) == None ):
+                    if (
+                        gom.meta_types.OGF.Object.find_member(mslot.name)==None
+                            and
+                        gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
+                    ):
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
 
@@ -370,7 +395,7 @@ def draw_graphite_gui():
             scene_graph.current_object = objname
             if ps.imgui.IsMouseDoubleClicked(0):
                 for objname2 in dir(scene_graph.objects):
-                    ps.get_surface_mesh(objname2).set_enabled(objname2 == objname)
+                    ps.get_surface_mesh(objname2).set_enabled(objname2==objname)
             
         if ps.imgui.BeginPopupContextItem(objname+'##ops'):
             if ps.imgui.MenuItem('delete object'):
@@ -386,27 +411,37 @@ def draw_graphite_gui():
                 command.set(scene_graph.I.Scene.duplicate_current)
 
 #            if ps.imgui.MenuItem('transform object'):
-#                print(dir(ps.get_surface_mesh(objname))) # how to switch gizmo on programatically ?
+#                print(dir(ps.get_surface_mesh(objname)))
+#            how can I switch gizmo on/off programatically ?
 
             if ps.imgui.MenuItem('commit transform'):
                 surface_mesh = ps.get_surface_mesh(objname)
                 xform = surface_mesh.get_transform()
                 object = getattr(scene_graph.objects,objname)
                 object_vertices = np.asarray(object.I.Editor.get_points())
-                vertices = np.c_[object_vertices, np.ones(object_vertices.shape[0])] # add a column of 1
-                vertices = np.matmul(vertices,np.transpose(xform))    # transform all the vertices
-                weights = vertices[:,-1]                              # get 4th column
-                vertices = vertices[:,:-1]                            # get the rest
-                vertices = vertices/weights[:,None]                   # divide by the weights
-                np.copyto(object_vertices,vertices)                   # inject new vertices into mesh
-                surface_mesh.reset_transform()                        # reset polyscope xform to identity
-                surface_mesh.update_vertex_positions(object_vertices) # tell polyscope that vertices have changed
+                vertices = np.c_[  # add a column of 1
+                    object_vertices, np.ones(object_vertices.shape[0])
+                ]
+                # transform all the vertices
+                vertices = np.matmul(vertices,np.transpose(xform))
+                weights = vertices[:,-1]            # get 4th column
+                vertices = vertices[:,:-1]          # get the rest
+                vertices = vertices/weights[:,None] # divice by w
+                np.copyto(object_vertices,vertices) # inject into graphite object
+                surface_mesh.reset_transform()      # reset polyscope xform
+                # tell polyscope that vertices have changed
+                surface_mesh.update_vertex_positions(object_vertices) 
                 
             ps.imgui.Separator() 
-            command.draw_menumap(command.menu_map,getattr(scene_graph.objects,objname))
+            command.draw_menumap(
+                command.menu_map,getattr(scene_graph.objects,objname)
+            )
             # One could use instead:
-            # command.draw_object_commands_menus(getattr(scene_graph.objects,objname))
-            # But is is less legible (with "menumap", we exploit the meta-information)
+            # command.draw_object_commands_menus(
+            #   getattr(scene_graph.objects,objname)
+            # )
+            # But is is less legible (with "menumap", we fully exploit
+            # the meta-information of Graphite)
             ps.imgui.EndPopup()	      
     ps.imgui.EndListBox()
     command.draw()
