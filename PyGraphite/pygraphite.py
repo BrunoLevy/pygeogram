@@ -45,29 +45,36 @@ class GraphiteCommand:
                 ps.imgui.SetTooltip(self.request.method().custom_attribute_value('help'))
             mmethod = self.request.method()
             if mmethod.nb_args() != 0:
-                ps.imgui.BeginListBox('##Command',[-1,150])
+                nb_standard_args = 0
                 has_advanced_args = False
                 for i in range(mmethod.nb_args()):
-                    tooltip = None
-                    if mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+                    if self.ith_arg_is_advanced(i):
                         has_advanced_args = True
                     else:
+                        nb_standard_args = nb_standard_args + 1
+                height = nb_standard_args * 32
+                if has_advanced_args:
+                    height = height + 15
+                ps.imgui.BeginListBox('##Command',[-1,height])
+                for i in range(mmethod.nb_args()):
+                    tooltip = None
+                    if not self.ith_arg_is_advanced(i):
                         if mmethod.ith_arg_has_custom_attribute(i,'help'):
                             tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
-                            self.arg_handler(
-                               mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
-                            )
+                        self.arg_handler(
+                            mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                        )
                 if has_advanced_args:
                     if ps.imgui.TreeNode('Advanced'+'##'+objname+'.'+mmethod.name):
                         ps.imgui.TreePop()
                         for i in range(mmethod.nb_args()):
                             tooltip = None
-                            if mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+                            if self.ith_arg_is_advanced(i):
                                 if mmethod.ith_arg_has_custom_attribute(i,'help'):
                                     tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
-                                    self.arg_handler(
-                                       mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
-                                    )
+                                self.arg_handler(
+                                    mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                                )
                 ps.imgui.EndListBox()
             if ps.imgui.Button('OK'):
                 grob = self.request.object().grob                
@@ -95,6 +102,12 @@ class GraphiteCommand:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    def ith_arg_is_advanced(self, i):
+        mmethod = self.request.method()
+        if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+           return False
+        return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
+        
     """ Handles the GUI for a parameter """
     def arg_handler(self, property_name, mtype, tooltip):
         if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
