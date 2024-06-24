@@ -325,7 +325,6 @@ class GraphiteCommand:
                           menu_name = menu_name + '/' + submenu_name
                     if (gom.meta_types.OGF.Object.find_member(mslot.name) == None and
                         gom.meta_types.OGF.Node.find_member(mslot.name) == None ):
-                        print(menu_name, mslot.name)
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
 
@@ -386,8 +385,8 @@ def draw_graphite_gui():
                 scene_graph.current_object = objname
                 command.set(scene_graph.I.Scene.duplicate_current)
 
-            if ps.imgui.MenuItem('transform object'):
-                print(dir(ps.get_surface_mesh(objname)))
+#            if ps.imgui.MenuItem('transform object'):
+#                print(dir(ps.get_surface_mesh(objname))) # how to switch gizmo on programatically ?
 
             if ps.imgui.MenuItem('commit transform'):
                 surface_mesh = ps.get_surface_mesh(objname)
