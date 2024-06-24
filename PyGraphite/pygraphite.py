@@ -14,6 +14,7 @@ class GraphiteCommand:
         # The "menu map" is constructed using Graphite Object Model
         # introspection mechanism
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
+        self.structure_map = {}
 
     """ Sets current Graphite command, edited in the GUI """
     def set(self, request):
@@ -42,7 +43,7 @@ class GraphiteCommand:
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
                 if scene_graph.current() != None:
-                    objname = objname + ', current=' + scene_graph.current().name
+                    objname = objname + ', current='+scene_graph.current().name
             else:                
                 objname = grob.name
                 
@@ -102,12 +103,15 @@ class GraphiteCommand:
             if ps.imgui.Button('OK'):
                 grob = self.request.object().grob
                 if not mmethod.has_custom_attribute('keep_structures'):
-                    unregister_graphite_objects()
+                    self.unregister_graphite_objects()
                 self.invoke()
-                if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+                if (
+                        grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
+                        grob.I.Editor.nb_facets != 0
+                ):
                     self.request.object().grob.I.Surface.triangulate()
                 if not mmethod.has_custom_attribute('keep_structures'):
-                    register_graphite_objects()
+                    self.register_graphite_objects()
                 command.reset()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and close command')
@@ -115,12 +119,12 @@ class GraphiteCommand:
             if ps.imgui.Button('Apply'):
                 grob = self.request.object().grob
                 if not mmethod.has_custom_attribute('keep_structures'):
-                    unregister_graphite_objects()
+                    self.unregister_graphite_objects()
                 self.invoke()
                 if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
                     self.request.object().grob.I.Surface.triangulate()
                 if not mmethod.has_custom_attribute('keep_structures'):
-                    register_graphite_objects()
+                    self.register_graphite_objects()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and keep command open')
             ps.imgui.SameLine()
@@ -358,6 +362,42 @@ class GraphiteCommand:
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
 
+    def register_graphite_object(self,o):
+        E = o.I.Editor
+        structure = None
+        pts = np.asarray(E.get_points())
+        if E.nb_facets == 0 and E.nb_cells == 0:
+            structure = ps.register_point_cloud(o.name,pts)
+        elif E.nb_cells == 0:
+            structure = ps.register_surface_mesh(
+                o.name, pts,
+                np.asarray(o.I.Editor.get_triangles())
+            )
+        else:
+            structure = ps.register_volume_mesh(
+                o.name, pts,
+                np.asarray(o.I.Editor.get_tetrahedra())
+            )
+        if structure != None:
+            self.structure_map[o.name] = structure
+            for attr in o.list_attributes('vertices','double','1').split(';'):
+                if attr != '':
+                    attrarray = np.asarray(E.find_attribute(attr))
+                    structure.add_scalar_quantity(
+                        attr.removeprefix('vertices.'),
+                        attrarray
+                    )
+        
+    def register_graphite_objects(self):
+        for i in dir(scene_graph.objects):
+            self.register_graphite_object(scene_graph.resolve(i))
+                
+    def unregister_graphite_objects(self):
+        for i in dir(scene_graph.objects):
+            self.structure_map[i].remove()
+            del self.structure_map[i]
+
+    
 def draw_graphite_gui():
     global running, scene_graph, command
     ps.imgui.SetNextWindowPos([350,10])
@@ -449,18 +489,6 @@ def draw_graphite_gui():
     command.draw()
     ps.imgui.End()
     
-def register_graphite_object(O):
-   pts = np.asarray(O.I.Editor.get_points())
-   tri = np.asarray(O.I.Editor.get_triangles())
-   structure = ps.register_surface_mesh(O.name,pts,tri)
-
-def register_graphite_objects():
-   for i in dir(scene_graph.objects):
-       register_graphite_object(scene_graph.resolve(i))
-
-def unregister_graphite_objects():
-   for i in dir(scene_graph.objects):
-       ps.remove_surface_mesh(i)
 
 scene_graph = gom.meta_types.OGF.SceneGraph.create()
 for f in sys.argv[1:]:
@@ -469,7 +497,6 @@ for f in sys.argv[1:]:
 ps.init()
 ps.set_open_imgui_window_for_user_callback(False)
 ps.set_user_callback(draw_graphite_gui)
-register_graphite_objects()
 
 #=====================================================
 # Add custom command to Graphite Object Model
@@ -489,12 +516,11 @@ mslot.create_custom_attribute('keep_structures','true')
 mslot.add_arg('name', gom.meta_types.std.string)
 scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
-gom.inspect_meta_type(gom.meta_types.OGF.MeshGrobPolyScopeCommands)
-
 #=====================================================
 
 running = True
 command = GraphiteCommand()
+command.register_graphite_objects()
 
 while running:
     ps.frame_tick()
