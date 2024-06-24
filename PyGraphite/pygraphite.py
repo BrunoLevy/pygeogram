@@ -323,9 +323,11 @@ def draw_graphite_gui():
     ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
     if ps.imgui.BeginMenuBar():
        if ps.imgui.BeginMenu('File'):
-           command.draw_request_menuitem(getattr(scene_graph.I.Scene,'create_object'))
-           command.draw_request_menuitem(getattr(scene_graph.I.Scene,'delete_all'))
-           ps.imgui.Separator()
+#          command.draw_request_menuitem(getattr(scene_graph.I.Scene,'create_object'))
+#          command.draw_request_menuitem(getattr(scene_graph.I.Scene,'delete_all'))
+#          ps.imgui.Separator()
+           command.draw_object_commands_menus(scene_graph)
+           ps.imgui.Separator()           
            if ps.imgui.MenuItem('show all'):
                 for objname in dir(scene_graph.objects):
                     ps.get_surface_mesh(objname).set_enabled(True)
