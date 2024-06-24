@@ -46,13 +46,28 @@ class GraphiteCommand:
             mmethod = self.request.method()
             if mmethod.nb_args() != 0:
                 ps.imgui.BeginListBox('##Command',[-1,150])
+                has_advanced_args = False
                 for i in range(mmethod.nb_args()):
                     tooltip = None
-                    if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                        tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
-                    self.arg_handler(
-                        mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
-                    )
+                    if mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+                        has_advanced_args = True
+                    else:
+                        if mmethod.ith_arg_has_custom_attribute(i,'help'):
+                            tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
+                            self.arg_handler(
+                               mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                            )
+                if has_advanced_args:
+                    if ps.imgui.TreeNode('Advanced'+'##'+objname+'.'+mmethod.name):
+                        ps.imgui.TreePop()
+                        for i in range(mmethod.nb_args()):
+                            tooltip = None
+                            if mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+                                if mmethod.ith_arg_has_custom_attribute(i,'help'):
+                                    tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
+                                    self.arg_handler(
+                                       mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                                    )
                 ps.imgui.EndListBox()
             if ps.imgui.Button('OK'):
                 grob = self.request.object().grob                
@@ -73,7 +88,7 @@ class GraphiteCommand:
                     self.request.object().grob.I.Surface.triangulate()
                 register_graphite_objects()
             if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Apply and leave command open')
+                ps.imgui.SetTooltip('Apply and keep command open')
             ps.imgui.SameLine()
             if ps.imgui.Button('Cancel'):
                 command.reset()
@@ -93,9 +108,7 @@ class GraphiteCommand:
         
     """ Handles the GUI for a string parameter """
     def string_handler(self, property_name, mtype, tooltip):
-        ps.imgui.Text(property_name)
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        self.label(property_name, tooltip)        
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
@@ -107,9 +120,7 @@ class GraphiteCommand:
 
     """ Handles the GUI for a boolean parameter """
     def bool_handler(self, property_name, mtype, tooltip):
-        ps.imgui.Text(property_name)
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        self.label(property_name, tooltip)
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
@@ -126,9 +137,7 @@ class GraphiteCommand:
 
     """ Handles the GUI for an integer parameter """
     def int_handler(self, property_name, mtype, tooltip):
-        ps.imgui.Text(property_name)
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        self.label(property_name, tooltip)
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
@@ -142,9 +151,7 @@ class GraphiteCommand:
 
     """ Handles the GUI for an unsigned integer parameter """
     def unsigned_int_handler(self, property_name, mtype, tooltip):
-        ps.imgui.Text(property_name)
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        self.label(property_name, tooltip)
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
@@ -175,9 +182,7 @@ class GraphiteCommand:
         self.combo_box(property_name, values, tooltip)
             
     def combo_box(self, property_name, values, tooltip):
-        ps.imgui.Text(property_name)
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        self.label(property_name, tooltip)
         if values=='':
             return
         if values[0] == ';':
@@ -196,6 +201,11 @@ class GraphiteCommand:
         _,new_index = ps.imgui.Combo('##properties##'+property_name, old_index, values)
         ps.imgui.PopItemWidth()
         self.args[property_name] = values[new_index]
+
+    def label(self, property_name, tooltip):
+        ps.imgui.Text(property_name.replace('_',' '))
+        if tooltip != None and ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip(tooltip)
         
     """ Draws menus for all commands associated with a Graphite object """
     def draw_object_commands_menus(self,o):
@@ -314,7 +324,8 @@ def draw_graphite_gui():
 def register_graphite_object(O):
    pts = np.asarray(O.I.Editor.get_points())
    tri = np.asarray(O.I.Editor.get_triangles())
-   ps.register_surface_mesh(O.name,pts,tri)
+   structure = ps.register_surface_mesh(O.name,pts,tri)
+   structure.set_transform([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0],[0, 0, 0, 1]])
 
 def register_graphite_objects():
    for i in dir(scene_graph.objects):
