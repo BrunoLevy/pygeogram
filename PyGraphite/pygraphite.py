@@ -98,24 +98,29 @@ class GraphiteCommand:
                                     mmethod.ith_arg_type(i), tooltip
                                 )
                 ps.imgui.EndListBox()
+            meta_class = mmethod.container_meta_class()                
             if ps.imgui.Button('OK'):
-                grob = self.request.object().grob                
-                unregister_graphite_objects()
+                grob = self.request.object().grob
+                if not mmethod.has_custom_attribute('keep_structures'):
+                    unregister_graphite_objects()
                 self.invoke()
                 if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
                     self.request.object().grob.I.Surface.triangulate()
-                register_graphite_objects()
+                if not mmethod.has_custom_attribute('keep_structures'):
+                    register_graphite_objects()
                 command.reset()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and close command')
             ps.imgui.SameLine()
             if ps.imgui.Button('Apply'):
-                grob = self.request.object().grob                
-                unregister_graphite_objects()
+                grob = self.request.object().grob
+                if not mmethod.has_custom_attribute('keep_structures'):
+                    unregister_graphite_objects()
                 self.invoke()
                 if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
                     self.request.object().grob.I.Surface.triangulate()
-                register_graphite_objects()
+                if not mmethod.has_custom_attribute('keep_structures'):
+                    register_graphite_objects()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and keep command open')
             ps.imgui.SameLine()
@@ -353,9 +358,6 @@ class GraphiteCommand:
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
 
-running = True
-command = GraphiteCommand()
-       
 def draw_graphite_gui():
     global running, scene_graph, command
     ps.imgui.SetNextWindowPos([350,10])
@@ -468,6 +470,31 @@ ps.init()
 ps.set_open_imgui_window_for_user_callback(False)
 ps.set_user_callback(draw_graphite_gui)
 register_graphite_objects()
+
+#=====================================================
+# Add custom command to Graphite Object Model
+
+def show_attribute(name, o, method):
+    grob = o.grob
+    attr_array = np.asarray(grob.I.Editor.find_attribute('vertices.'+name))
+    print(attr_array)
+    ps.get_surface_mesh(grob.name).add_scalar_quantity(name, attr_array)
+
+mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
+    'OGF::MeshGrobPolyScopeCommands'
+)
+mclass.add_constructor()
+mslot = mclass.add_slot('show_attribute',show_attribute)
+mslot.create_custom_attribute('keep_structures','true')
+mslot.add_arg('name', gom.meta_types.std.string)
+scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
+
+gom.inspect_meta_type(gom.meta_types.OGF.MeshGrobPolyScopeCommands)
+
+#=====================================================
+
+running = True
+command = GraphiteCommand()
 
 while running:
     ps.frame_tick()
