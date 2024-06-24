@@ -7,6 +7,12 @@ class GraphiteCommand:
     """ Handles user interface for Graphite commands """
     def __init__(self):
         self.reset()
+        # Graphite can have multiple object types, but here we
+        # only handle meshes OGF::MeshGrob.
+        # Here we build the "menu map", that is, the tree of all
+        # commands that one can apply to a Graphite mesh.
+        # The "menu map" is constructed using Graphite Object Model
+        # introspection mechanism
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
 
     """ Sets current Graphite command, edited in the GUI """
@@ -179,14 +185,17 @@ class GraphiteCommand:
         val = str(val)
         self.args[property_name] = val
 
+    """ Handles the GUI for a MeshGrobName parameter """
     def OGF__MeshGrobName_handler(self, property_name, mtype, tooltip):
         values = gom.get_environment_value('OGF::MeshGrob_instances')
         self.combo_box(property_name, values, tooltip)
 
+    """ Handles the GUI for a GrobClassName parameter """
     def OGF__GrobClassName_handler(self, property_name, mtype, tooltip):
         values = gom.get_environment_value('grob_types')
         self.combo_box(property_name, values, tooltip)
 
+    """ Handles the GUI for an enum parameter """
     def enum_handler(self, property_name, menum, tooltip):
         values = ''
         for i in range(menum.nb_values()):
@@ -194,7 +203,9 @@ class GraphiteCommand:
                 values = values + ';'
             values = values + menum.ith_name(i)
         self.combo_box(property_name, values, tooltip)
-            
+
+    """ Handles the GUI with a combobox, 
+        given the possible values in a ';'-separated string """
     def combo_box(self, property_name, values, tooltip):
         self.label(property_name, tooltip)
         if values=='':
@@ -212,15 +223,20 @@ class GraphiteCommand:
             old_index = 0
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
-        _,new_index = ps.imgui.Combo('##properties##'+property_name, old_index, values)
+        _,new_index = ps.imgui.Combo(
+            '##properties##'+property_name, old_index, values
+        )
         ps.imgui.PopItemWidth()
         self.args[property_name] = values[new_index]
 
+    """ Draws the label of a parameter, 
+        and a tooltip if help is available in meta info """
     def label(self, property_name, tooltip):
         ps.imgui.Text(property_name.replace('_',' '))
         if tooltip != None and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
 
+    """ Draws and handles the menus stored in a menumap """
     def draw_menumap(self,menudict,o):
         for k,v in menudict.items():
             if isinstance(v,dict):
@@ -261,6 +277,7 @@ class GraphiteCommand:
         if ps.imgui.IsItemHovered() and request.method().has_custom_attribute('help'):
             ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
 
+    """ Inserts an entry in a menumap """
     def menu_map_insert(self, menu_dict, menu_name, mslot):
         menu_path = menu_name.split('/')
         if menu_name == '':
@@ -273,7 +290,8 @@ class GraphiteCommand:
             menu_name = menu_name.removeprefix(k)
             menu_name = menu_name.removeprefix('/')
             self.menu_map_insert(menu_dict[k], menu_name, mslot)
-            
+
+    """ Builds a menumap for a grob meta class """
     def menu_map_build(self,grob_meta_class):
         result = dict()
         grob_class_name = grob_meta_class.name
@@ -311,8 +329,6 @@ class GraphiteCommand:
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
 
-    
-            
 running = True
 command = GraphiteCommand()
        
@@ -323,9 +339,6 @@ def draw_graphite_gui():
     ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
     if ps.imgui.BeginMenuBar():
        if ps.imgui.BeginMenu('File'):
-#          command.draw_request_menuitem(getattr(scene_graph.I.Scene,'create_object'))
-#          command.draw_request_menuitem(getattr(scene_graph.I.Scene,'delete_all'))
-#          ps.imgui.Separator()
            command.draw_object_commands_menus(scene_graph)
            ps.imgui.Separator()           
            if ps.imgui.MenuItem('show all'):
@@ -349,12 +362,6 @@ def draw_graphite_gui():
 
     objects = dir(scene_graph.objects)
     ps.imgui.BeginListBox('##Objects',[-1,200])
-    #ps.imgui.Selectable('SceneGraph',False)
-    #if ps.imgui.BeginPopupContextItem('SceneGraph##ops'):
-    #    command.draw_request_menuitem(getattr(scene_graph.I.Scene,'create_object'))
-    #    command.draw_request_menuitem(getattr(scene_graph.I.Scene,'delete_all'))
-    #    # command.draw_object_commands_menus(scene_graph)
-    #    ps.imgui.EndPopup()	      
     for objname in objects:
         sel,_=ps.imgui.Selectable(
             objname, (objname == scene_graph.current().name),
@@ -397,8 +404,10 @@ def draw_graphite_gui():
                 surface_mesh.update_vertex_positions(object_vertices) # tell polyscope that vertices have changed
                 
             ps.imgui.Separator() 
-            #command.draw_object_commands_menus(getattr(scene_graph.objects,objname))
             command.draw_menumap(command.menu_map,getattr(scene_graph.objects,objname))
+            # One could use instead:
+            # command.draw_object_commands_menus(getattr(scene_graph.objects,objname))
+            # But is is less legible (with "menumap", we exploit the meta-information)
             ps.imgui.EndPopup()	      
     ps.imgui.EndListBox()
     command.draw()
@@ -408,7 +417,6 @@ def register_graphite_object(O):
    pts = np.asarray(O.I.Editor.get_points())
    tri = np.asarray(O.I.Editor.get_triangles())
    structure = ps.register_surface_mesh(O.name,pts,tri)
-   structure.set_transform([[1, 0, 0, 0],[0, 1, 0, 0],[0, 0, 1, 0],[0, 0, 0, 1]])
 
 def register_graphite_objects():
    for i in dir(scene_graph.objects):
