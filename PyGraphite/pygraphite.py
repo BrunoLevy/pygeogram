@@ -1,7 +1,7 @@
 import polyscope as ps
 import numpy as np
 import gompy
-import math,sys
+import math,sys,time
 
 class GraphiteApp:
 
@@ -21,8 +21,24 @@ class GraphiteApp:
         ps.set_open_imgui_window_for_user_callback(False)
         ps.set_user_callback(self.draw_GUI)
         self.running = True
+        quiet_frames = 0
         while self.running:
             ps.frame_tick()
+            # Mechanism to make it sleep a little bit
+            # if no mouse click/mouse drag happened
+            # since 2000 frames or more. This leaves
+            # CPU power for other apps and/or lets the
+            # CPU cool down
+            if (
+                    ps.imgui.GetIO().MouseDown[0] or
+                    ps.imgui.GetIO().MouseDown[1] or
+                    ps.imgui.GetIO().MouseDown[2]
+            ):
+                quiet_frames = 0
+            else:
+                quiet_frames = quiet_frames + 1
+            if quiet_frames > 2000:
+                time.sleep(0.05)
 
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([350,10])
