@@ -3,10 +3,14 @@ import numpy as np
 import gompy
 import math,sys
 
-class GraphiteCommand:
-    """ Handles user interface for Graphite commands """
+class GraphiteApp:
     def __init__(self):
-        self.reset()
+        self.reset_command()
+        self.structure_map = {}
+        self.running = False
+        self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
+
+    def run(self,args):
         # Graphite can have multiple object types, but here we
         # only handle meshes OGF::MeshGrob.
         # Here we build the "menu map", that is, the tree of all
@@ -14,10 +18,17 @@ class GraphiteCommand:
         # The "menu map" is constructed using Graphite Object Model
         # introspection mechanism
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
-        self.structure_map = {}
-
+        for f in args:
+            self.scene_graph.load_object(f)
+        self.register_graphite_objects()
+        ps.set_open_imgui_window_for_user_callback(False)
+        ps.set_user_callback(self.draw_GUI)
+        self.running = True
+        while self.running:
+            ps.frame_tick()
+        
     """ Sets current Graphite command, edited in the GUI """
-    def set(self, request):
+    def set_command(self, request):
         self.request = request
         self.args = {}
         mmethod = self.request.method()
@@ -27,23 +38,23 @@ class GraphiteCommand:
                 val = mmethod.ith_arg_default_value_as_string(i)
             self.args[mmethod.ith_arg_name(i)] = val
 
-    """ Resets current Graphite command """
-    def reset(self):
+    """ Reset_Commands current Graphite command """
+    def reset_command(self):
         self.request = None
         self.args = None
 
     """ Invokes current Graphite command with the args entered in the GUI """
-    def invoke(self):
+    def invoke_command(self):
         self.request(**self.args) #**: expand dict as keywords func call
 
     """ Draws the GUI for the current Graphite command """
-    def draw(self):
+    def draw_command(self):
         if self.request != None:
             grob = self.request.object().grob
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
-                if scene_graph.current() != None:
-                    objname = objname + ', current='+scene_graph.current().name
+                if self.scene_graph.current() != None:
+                    objname = objname + ', current='+self.scene_graph.current().name
             else:                
                 objname = grob.name
                 
@@ -104,7 +115,7 @@ class GraphiteCommand:
                 grob = self.request.object().grob
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.unregister_graphite_objects()
-                self.invoke()
+                self.invoke_command()
                 if (
                         grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
                         grob.I.Editor.nb_facets != 0
@@ -112,7 +123,7 @@ class GraphiteCommand:
                     self.request.object().grob.I.Surface.triangulate()
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.register_graphite_objects()
-                command.reset()
+                graphite.reset_command()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and close command')
             ps.imgui.SameLine()
@@ -120,7 +131,7 @@ class GraphiteCommand:
                 grob = self.request.object().grob
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.unregister_graphite_objects()
-                self.invoke()
+                self.invoke_command()
                 if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
                     self.request.object().grob.I.Surface.triangulate()
                 if not mmethod.has_custom_attribute('keep_structures'):
@@ -129,7 +140,7 @@ class GraphiteCommand:
                 ps.imgui.SetTooltip('Apply and keep command open')
             ps.imgui.SameLine()
             if ps.imgui.Button('Cancel'):
-                command.reset()
+                graphite.reset_command()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
@@ -271,7 +282,7 @@ class GraphiteCommand:
                 mslot = v
                 mclass = mslot.container_meta_class()
                 if ps.imgui.MenuItem(k.replace('_',' ')):
-                    self.set(getattr(o.query_interface(mclass.name),mslot.name))
+                    self.set_command(getattr(o.query_interface(mclass.name),mslot.name))
                 if (ps.imgui.IsItemHovered() and
                     mslot.has_custom_attribute('help')):
                     ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
@@ -298,7 +309,7 @@ class GraphiteCommand:
     """ Draw a menu item for a given request (that is, a closure) """
     def draw_request_menuitem(self, request):
         if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
-            self.set(request)
+            self.set_command(request)
         if (
                 ps.imgui.IsItemHovered() and
                 request.method().has_custom_attribute('help')
@@ -389,119 +400,110 @@ class GraphiteCommand:
                     )
         
     def register_graphite_objects(self):
-        for i in dir(scene_graph.objects):
-            self.register_graphite_object(scene_graph.resolve(i))
+        for i in dir(self.scene_graph.objects):
+            self.register_graphite_object(self.scene_graph.resolve(i))
                 
     def unregister_graphite_objects(self):
-        for i in dir(scene_graph.objects):
+        for i in dir(self.scene_graph.objects):
             self.structure_map[i].remove()
             del self.structure_map[i]
 
-    
-def draw_graphite_gui():
-    global running, scene_graph, command
-    ps.imgui.SetNextWindowPos([350,10])
-    ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
-    ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
-    if ps.imgui.BeginMenuBar():
-       if ps.imgui.BeginMenu('File'):
-           command.draw_object_commands_menus(scene_graph)
-           ps.imgui.Separator()           
-           if ps.imgui.MenuItem('show all'):
-                for objname in dir(scene_graph.objects):
-                    command.structure_map[objname].set_enabled(True)
-           if ps.imgui.MenuItem('hide all'):
-                for objname in dir(scene_graph.objects):
-                    command.structure_map[objname].set_enabled(False)
-           ps.imgui.Separator()
-           if ps.imgui.MenuItem('quit'):
-               running = False
-           ps.imgui.EndMenu()
-       ps.imgui.EndMenuBar()
-    C = scene_graph.current()
-    if C != None:
-        nv = C.I.Editor.nb_vertices
-        nf = C.I.Editor.nb_facets
-        ps.imgui.Text(C.name)
-        ps.imgui.Text('   vertices: ' + str(nv))
-        ps.imgui.Text('   facets: ' + str(nf))
+    def draw_menubar(self):
+        if ps.imgui.BeginMenuBar():
+            if ps.imgui.BeginMenu('File'):
+                graphite.draw_object_commands_menus(self.scene_graph)
+                ps.imgui.Separator()           
+                if ps.imgui.MenuItem('show all'):
+                    for objname in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname].set_enabled(True)
+                if ps.imgui.MenuItem('hide all'):
+                    for objname in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname].set_enabled(False)
+                ps.imgui.Separator()
+                if ps.imgui.MenuItem('quit'):
+                    self.running = False
+                ps.imgui.EndMenu()
+            ps.imgui.EndMenuBar()
 
-    objects = dir(scene_graph.objects)
-    ps.imgui.BeginListBox('##Objects',[-1,200])
-    for objname in objects:
-        sel,_=ps.imgui.Selectable(
-            objname, (objname == scene_graph.current().name),
-            ps.imgui.ImGuiSelectableFlags_AllowDoubleClick
-        )
-        if sel:
-            scene_graph.current_object = objname
-            if ps.imgui.IsMouseDoubleClicked(0):
-                for objname2 in dir(scene_graph.objects):
-                    command.structure_map[objname2].set_enabled(
-                        objname2==objname
-                    )
-            
-        if ps.imgui.BeginPopupContextItem(objname+'##ops'):
-            if ps.imgui.MenuItem('delete object'):
-                scene_graph.current_object = objname
-                command.set(scene_graph.I.Scene.delete_current)
-                
-            if ps.imgui.MenuItem('rename object'):
-                scene_graph.current_object = objname
-                command.set(scene_graph.I.Scene.rename_current)
-
-            if ps.imgui.MenuItem('duplicate object'):
-                scene_graph.current_object = objname
-                command.set(scene_graph.I.Scene.duplicate_current)
-
-#            if ps.imgui.MenuItem('transform object'):
-#                print(dir(ps.get_surface_mesh(objname)))
-#            how can I switch gizmo on/off programatically ?
-
-            if ps.imgui.MenuItem('commit transform'):
-                surface_mesh = ps.get_surface_mesh(objname)
-                xform = surface_mesh.get_transform()
-                object = getattr(scene_graph.objects,objname)
-                object_vertices = np.asarray(object.I.Editor.get_points())
-                vertices = np.c_[  # add a column of 1
-                    object_vertices, np.ones(object_vertices.shape[0])
-                ]
-                # transform all the vertices
-                vertices = np.matmul(vertices,np.transpose(xform))
-                weights = vertices[:,-1]            # get 4th column
-                vertices = vertices[:,:-1]          # get the rest
-                vertices = vertices/weights[:,None] # divice by w
-                np.copyto(object_vertices,vertices) # inject into graphite object
-                surface_mesh.reset_transform()      # reset polyscope xform
-                # tell polyscope that vertices have changed
-                surface_mesh.update_vertex_positions(object_vertices) 
-                
-            ps.imgui.Separator() 
-            command.draw_menumap(
-                command.menu_map,getattr(scene_graph.objects,objname)
+    def draw_scenegraph_GUI(self):
+        C = self.scene_graph.current()
+        if C != None:
+            nv = C.I.Editor.nb_vertices
+            nf = C.I.Editor.nb_facets
+            ps.imgui.Text(C.name)
+            ps.imgui.Text('   vertices: ' + str(nv))
+            ps.imgui.Text('   facets: ' + str(nf))
+        objects = dir(self.scene_graph.objects)
+        ps.imgui.BeginListBox('##Objects',[-1,200])
+        for objname in objects:
+            sel,_=ps.imgui.Selectable(
+                objname, (objname == self.scene_graph.current().name),
+                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick
             )
-            # One could use instead:
-            # command.draw_object_commands_menus(
-            #   getattr(scene_graph.objects,objname)
-            # )
-            # But is is less legible (with "menumap", we fully exploit
-            # the meta-information of Graphite)
-            ps.imgui.EndPopup()	      
-    ps.imgui.EndListBox()
-    command.draw()
-    ps.imgui.End()
-    
+            if sel:
+                self.scene_graph.current_object = objname
+                if ps.imgui.IsMouseDoubleClicked(0):
+                    for objname2 in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname2].set_enabled(
+                            objname2==objname
+                        )
+            
+            if ps.imgui.BeginPopupContextItem(objname+'##ops'):
+                if ps.imgui.MenuItem('delete object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.delete_current)
+                
+                if ps.imgui.MenuItem('rename object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.rename_current)
+
+                if ps.imgui.MenuItem('duplicate object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.duplicate_current)
+
+                if ps.imgui.MenuItem('commit transform'):
+                    self.commit_transform(getattr(self.scene_graph.objects,objname))
+                
+                ps.imgui.Separator() 
+                self.draw_menumap(
+                    self.menu_map,getattr(self.scene_graph.objects,objname)
+                )
+                ps.imgui.EndPopup()	      
+        ps.imgui.EndListBox()
+        
+
+    def draw_GUI(self):
+        ps.imgui.SetNextWindowPos([350,10])
+        ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
+        ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
+        self.draw_menubar()
+        self.draw_scenegraph_GUI()
+        self.draw_command()
+        ps.imgui.End()
+
+    def commit_transform(self, o):
+        structure = self.structure_map[o.name]
+        xform = structure.get_transform()
+        object_vertices = np.asarray(o.I.Editor.get_points())
+        vertices = np.c_[  # add a column of 1
+            object_vertices, np.ones(object_vertices.shape[0])
+        ]
+        # transform all the vertices
+        vertices = np.matmul(vertices,np.transpose(xform))
+        weights = vertices[:,-1]            # get 4th column
+        vertices = vertices[:,:-1]          # get the rest
+        vertices = vertices/weights[:,None] # divice by w
+        np.copyto(object_vertices,vertices) # inject into graphite object
+        structure.reset_transform()      # reset polyscope xform
+        # tell polyscope that vertices have changed
+        structure.update_vertex_positions(object_vertices) 
+
+        
 #=====================================================
 # Initialize Graphite, load objects from cmd line args
 # Initialize polyscope
 
-scene_graph = gom.meta_types.OGF.SceneGraph.create()
-for f in sys.argv[1:]:
-    scene_graph.load_object(f)
-
-ps.init()
-ps.set_open_imgui_window_for_user_callback(False)
-ps.set_user_callback(draw_graphite_gui)
+graphite = GraphiteApp()
 
 #=====================================================
 # Add custom commands to Graphite Object Model
@@ -513,7 +515,7 @@ def extract_component(attr_name, component, o, method):
         grob.I.Editor.find_attribute('vertices.'+attr_name)
     )
     attr_array = attr_array[:,component]
-    command.structure_map[grob.name].add_scalar_quantity(
+    graphite.structure_map[grob.name].add_scalar_quantity(
         attr_name+'['+str(component)+']', attr_array
     )
 
@@ -526,13 +528,9 @@ mslot.create_custom_attribute('keep_structures','true')
 mslot.create_custom_attribute('menu','/Attributes/Polyscope Display')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
 mslot.add_arg('component', gom.meta_types.int, '0')
-scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
+graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
 
-running = True
-command = GraphiteCommand()
-command.register_graphite_objects()
-
-while running:
-    ps.frame_tick()
+ps.init()
+graphite.run(sys.argv[1:])
