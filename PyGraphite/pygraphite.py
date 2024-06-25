@@ -533,6 +533,14 @@ graphite = GraphiteApp()
 #=====================================================
 # Add custom commands to Graphite Object Model
 
+menum = gom.meta_types.OGF.MetaEnum.create('FlipAxis')
+menum.add_value('-X',0)
+menum.add_value('-Y',1)
+menum.add_value('-Z',2)
+menum.add_value('YZX',3)
+menum.add_value('ZXY',4)
+gom.bind_meta_type(menum)
+
 # extracts a component from a vector attribute and
 # displays it in Polyscope
 def extract_component(attr_name, component, o, method):
@@ -546,15 +554,43 @@ def extract_component(attr_name, component, o, method):
         attr_name+'['+str(component)+']', attr_array
     )
 
+# flips axes of a mesh
+# note the in-place modification of object's coordinates
+def flip(axis, o, method):
+    grob = o.grob
+    # points array can be modified in-place !
+    pts_array = np.asarray(grob.I.Editor.get_points())
+    if   axis == '-X':
+        pts_array[:,0] = -pts_array[:,0]
+    elif axis == '-Y':
+        pts_array[:,1] = -pts_array[:,1]
+    elif axis == '-Z':
+        pts_array[:,2] = -pts_array[:,2]        
+    elif axis == 'YZX':
+        pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
+    elif axis == 'ZXY':
+        pts_array[:,[0,1,2]] = pts_array[:,[2,0,1]]
+    structure = graphite.structure_map[grob.name]
+    structure.update_vertex_positions(pts_array) 
+
+        
 mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
     'OGF::MeshGrobPolyScopeCommands'
 )
 mclass.add_constructor()
 mslot = mclass.add_slot('extract_component',extract_component)
+mslot.create_custom_attribute('help','sends component of a vector attribute to Polyscope')
 mslot.create_custom_attribute('keep_structures','true')
 mslot.create_custom_attribute('menu','/Attributes/Polyscope Display')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
 mslot.add_arg('component', gom.meta_types.int, '0')
+
+mslot = mclass.add_slot('flip',flip)
+mslot.create_custom_attribute('help','flips axes of an object')
+mslot.create_custom_attribute('keep_structures','true')
+mslot.create_custom_attribute('menu','/Mesh')
+mslot.add_arg('axis', gom.meta_types.FlipAxis, 'X')
+
 graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
