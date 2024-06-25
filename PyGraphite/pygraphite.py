@@ -4,6 +4,9 @@ import gompy
 import math,sys
 
 class GraphiteApp:
+
+    #===== Application logic =============================================
+    
     def __init__(self):
         self.reset_command()
         self.structure_map = {}
@@ -11,12 +14,6 @@ class GraphiteApp:
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
 
     def run(self,args):
-        # Graphite can have multiple object types, but here we
-        # only handle meshes OGF::MeshGrob.
-        # Here we build the "menu map", that is, the tree of all
-        # commands that one can apply to a Graphite mesh.
-        # The "menu map" is constructed using Graphite Object Model
-        # introspection mechanism
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
         for f in args:
             self.scene_graph.load_object(f)
@@ -26,26 +23,81 @@ class GraphiteApp:
         self.running = True
         while self.running:
             ps.frame_tick()
+
+    def draw_GUI(self):
+        ps.imgui.SetNextWindowPos([350,10])
+        ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
+        ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
+        self.draw_menubar()
+        self.draw_scenegraph_GUI()
+        self.draw_command()
+        ps.imgui.End()
         
-    """ Sets current Graphite command, edited in the GUI """
-    def set_command(self, request):
-        self.request = request
-        self.args = {}
-        mmethod = self.request.method()
-        for i in range(mmethod.nb_args()):
-            val = ''
-            if mmethod.ith_arg_has_default_value(i):
-                val = mmethod.ith_arg_default_value_as_string(i)
-            self.args[mmethod.ith_arg_name(i)] = val
+    #====== Main elements of GUI ==========================================
 
-    """ Reset_Commands current Graphite command """
-    def reset_command(self):
-        self.request = None
-        self.args = None
+    def draw_menubar(self):
+        if ps.imgui.BeginMenuBar():
+            if ps.imgui.BeginMenu('File'):
+                graphite.draw_object_commands_menus(self.scene_graph)
+                ps.imgui.Separator()           
+                if ps.imgui.MenuItem('show all'):
+                    for objname in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname].set_enabled(True)
+                if ps.imgui.MenuItem('hide all'):
+                    for objname in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname].set_enabled(False)
+                ps.imgui.Separator()
+                if ps.imgui.MenuItem('quit'):
+                    self.running = False
+                ps.imgui.EndMenu()
+            ps.imgui.EndMenuBar()
 
-    """ Invokes current Graphite command with the args entered in the GUI """
-    def invoke_command(self):
-        self.request(**self.args) #**: expand dict as keywords func call
+
+    def draw_scenegraph_GUI(self):
+        C = self.scene_graph.current()
+        if C != None:
+            nv = C.I.Editor.nb_vertices
+            nf = C.I.Editor.nb_facets
+            ps.imgui.Text(C.name)
+            ps.imgui.Text('   vertices: ' + str(nv))
+            ps.imgui.Text('   facets: ' + str(nf))
+        objects = dir(self.scene_graph.objects)
+        ps.imgui.BeginListBox('##Objects',[-1,200])
+        for objname in objects:
+            sel,_=ps.imgui.Selectable(
+                objname, (objname == self.scene_graph.current().name),
+                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick
+            )
+            if sel:
+                self.scene_graph.current_object = objname
+                if ps.imgui.IsMouseDoubleClicked(0):
+                    for objname2 in dir(self.scene_graph.objects):
+                        graphite.structure_map[objname2].set_enabled(
+                            objname2==objname
+                        )
+            
+            if ps.imgui.BeginPopupContextItem(objname+'##ops'):
+                if ps.imgui.MenuItem('delete object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.delete_current)
+                
+                if ps.imgui.MenuItem('rename object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.rename_current)
+
+                if ps.imgui.MenuItem('duplicate object'):
+                    self.scene_graph.current_object = objname
+                    graphite.set_command(self.scene_graph.I.Scene.duplicate_current)
+
+                if ps.imgui.MenuItem('commit transform'):
+                    self.commit_transform(getattr(self.scene_graph.objects,objname))
+                
+                ps.imgui.Separator() 
+                self.draw_menumap(
+                    self.menu_map,getattr(self.scene_graph.objects,objname)
+                )
+                ps.imgui.EndPopup()	      
+        ps.imgui.EndListBox()
 
     """ Draws the GUI for the current Graphite command """
     def draw_command(self):
@@ -78,7 +130,7 @@ class GraphiteApp:
                         nb_standard_args = nb_standard_args + 1
                 height = nb_standard_args * 32
                 if has_advanced_args:
-                    height = height + 15
+                    height = height + 20
                 ps.imgui.BeginListBox('##Command',[-1,height])
                 for i in range(mmethod.nb_args()):
                     tooltip = None
@@ -144,6 +196,137 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    #===== Commands management ==============================================
+
+    """ Sets current Graphite command, edited in the GUI """
+    def set_command(self, request):
+        self.request = request
+        self.args = {}
+        mmethod = self.request.method()
+        for i in range(mmethod.nb_args()):
+            val = ''
+            if mmethod.ith_arg_has_default_value(i):
+                val = mmethod.ith_arg_default_value_as_string(i)
+            self.args[mmethod.ith_arg_name(i)] = val
+
+    """ Reset_Commands current Graphite command """
+    def reset_command(self):
+        self.request = None
+        self.args = None
+
+    """ Invokes current Graphite command with the args entered in the GUI """
+    def invoke_command(self):
+        self.request(**self.args) #**: expand dict as keywords func call
+
+    #===== MenuMap ===========================================================
+
+    """ Inserts an entry in a menumap """
+    def menu_map_insert(self, menu_dict, menu_name, mslot):
+        menu_path = menu_name.split('/')
+        if menu_name == '':
+            menu_dict[mslot.name] = mslot
+        else:
+            k = menu_path[0]
+            menu_path = menu_path[1:]
+            if k not in menu_dict:
+                menu_dict[k] = dict()
+            menu_name = menu_name.removeprefix(k)
+            menu_name = menu_name.removeprefix('/')
+            self.menu_map_insert(menu_dict[k], menu_name, mslot)
+
+    """ Builds a menumap for a grob meta class """
+    def menu_map_build(self,grob_meta_class):
+        result = dict()
+        grob_class_name = grob_meta_class.name
+        commands_str = gom.get_environment_value(grob_class_name + '_commands')
+        for command_class_name in commands_str.split(';'):
+            # skipped, already in context menu
+            if command_class_name != 'OGF::SceneGraphSceneCommands': 
+                default_menu_name = command_class_name
+                mclass = gom.resolve_meta_type(command_class_name)
+                # Command may be associated with a base class, so we find
+	        # the name of this base class in the 'grob_class_name' attribute
+	        # of the Command and strip it to generate the menu name.
+                default_menu_name = default_menu_name.removeprefix(
+	            mclass.custom_attribute_value('grob_class_name')
+	        )
+                default_menu_name = default_menu_name.removesuffix('Commands')
+                for i in range(mclass.nb_slots()):
+                    mslot = mclass.ith_slot(i)
+                    menu_name = default_menu_name
+                    if(mslot.has_custom_attribute('menu')):
+                       submenu_name = mslot.custom_attribute_value('menu')
+                       submenu_name.removesuffix('/')
+                       if submenu_name[0] == '/':
+                          menu_name = submenu_name[1:]
+                          # Comment for Graphite (not relevant here, but kept):
+                          # Particular case: SceneGraph commands starting
+                          # with '/', to be rooted in the menu bar,
+                          # are stored in the '/menubar' menumap
+                          # (and handled with specific code in
+                          #  graphite_gui.draw_menu_bar())
+                          if grob_meta_class.name == 'OGF::SceneGraph':
+                             menu_name = 'menubar/'+menu_name
+                       else:
+                          menu_name = menu_name + '/' + submenu_name
+                    if (
+                        gom.meta_types.OGF.Object.find_member(mslot.name)==None
+                            and
+                        gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
+                    ):
+                        self.menu_map_insert(result, menu_name, mslot)   
+        return result
+    
+    """ Draws and handles the menus stored in a menumap """
+    def draw_menumap(self,menudict,o):
+        for k,v in menudict.items():
+            if isinstance(v,dict):
+                if ps.imgui.BeginMenu(k.replace('_',' ')):
+                    self.draw_menumap(v,o)
+                    ps.imgui.EndMenu()
+            else:
+                mslot = v
+                mclass = mslot.container_meta_class()
+                if ps.imgui.MenuItem(k.replace('_',' ')):
+                    self.set_command(getattr(o.query_interface(mclass.name),mslot.name))
+                if (ps.imgui.IsItemHovered() and
+                    mslot.has_custom_attribute('help')):
+                    ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
+
+    #===== Other menus from metainformation =================================
+                    
+    """ Draws menus for all commands associated with a Graphite object """
+    def draw_object_commands_menus(self,o):
+        # get all interfaces of the object
+        for interface_name in dir(o.I):
+            interface = getattr(o.I,interface_name)
+            # keep only those that inherit OGF::Commands
+            if interface.meta_class.is_a(gom.meta_types.OGF.Commands):
+                if ps.imgui.BeginMenu(interface_name):
+                    self.draw_interface_menuitems(interface)
+                    ps.imgui.EndMenu()
+
+    """ Draw menu items for all slots of an interface """
+    def draw_interface_menuitems(self,interface):
+        mclass = interface.meta_class
+        for i in range(mclass.nb_slots()):
+            mslot = mclass.ith_slot(i)
+            if not hasattr(gom.meta_types.OGF.Interface,mslot.name):
+                self.draw_request_menuitem(getattr(interface,mslot.name))
+
+    """ Draw a menu item for a given request (that is, a closure) """
+    def draw_request_menuitem(self, request):
+        if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
+            self.set_command(request)
+        if (
+                ps.imgui.IsItemHovered() and
+                request.method().has_custom_attribute('help')
+        ):
+            ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
+    
+
+    #===== Low-level GUI, handlers for arguments based on type ==================
+            
     def ith_arg_is_advanced(self, i):
         mmethod = self.request.method()
         if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
@@ -175,14 +358,14 @@ class GraphiteApp:
 
     """ Handles the GUI for a boolean parameter """
     def bool_handler(self, property_name, mtype, tooltip):
-        self.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
+        ps.imgui.PushItemWidth(-1)
         val = self.args[property_name]
         val = (val == 'true')
         _,val = ps.imgui.Checkbox(
-            '##properties##' + property_name, val
+            property_name.replace('_',' '), val
         )
+        if tooltip != None and ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip(tooltip)
         ps.imgui.PopItemWidth()
         if val:
             val = 'true'
@@ -271,107 +454,7 @@ class GraphiteApp:
         if tooltip != None and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
 
-    """ Draws and handles the menus stored in a menumap """
-    def draw_menumap(self,menudict,o):
-        for k,v in menudict.items():
-            if isinstance(v,dict):
-                if ps.imgui.BeginMenu(k.replace('_',' ')):
-                    self.draw_menumap(v,o)
-                    ps.imgui.EndMenu()
-            else:
-                mslot = v
-                mclass = mslot.container_meta_class()
-                if ps.imgui.MenuItem(k.replace('_',' ')):
-                    self.set_command(getattr(o.query_interface(mclass.name),mslot.name))
-                if (ps.imgui.IsItemHovered() and
-                    mslot.has_custom_attribute('help')):
-                    ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
-            
-    """ Draws menus for all commands associated with a Graphite object """
-    def draw_object_commands_menus(self,o):
-        # get all interfaces of the object
-        for interface_name in dir(o.I):
-            interface = getattr(o.I,interface_name)
-            # keep only those that inherit OGF::Commands
-            if interface.meta_class.is_a(gom.meta_types.OGF.Commands):
-                if ps.imgui.BeginMenu(interface_name):
-                    self.draw_interface_menuitems(interface)
-                    ps.imgui.EndMenu()
-
-    """ Draw menu items for all slots of an interface """
-    def draw_interface_menuitems(self,interface):
-        mclass = interface.meta_class
-        for i in range(mclass.nb_slots()):
-            mslot = mclass.ith_slot(i)
-            if not hasattr(gom.meta_types.OGF.Interface,mslot.name):
-                self.draw_request_menuitem(getattr(interface,mslot.name))
-
-    """ Draw a menu item for a given request (that is, a closure) """
-    def draw_request_menuitem(self, request):
-        if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
-            self.set_command(request)
-        if (
-                ps.imgui.IsItemHovered() and
-                request.method().has_custom_attribute('help')
-        ):
-            ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
-
-    """ Inserts an entry in a menumap """
-    def menu_map_insert(self, menu_dict, menu_name, mslot):
-        menu_path = menu_name.split('/')
-        if menu_name == '':
-            menu_dict[mslot.name] = mslot
-        else:
-            k = menu_path[0]
-            menu_path = menu_path[1:]
-            if k not in menu_dict:
-                menu_dict[k] = dict()
-            menu_name = menu_name.removeprefix(k)
-            menu_name = menu_name.removeprefix('/')
-            self.menu_map_insert(menu_dict[k], menu_name, mslot)
-
-    """ Builds a menumap for a grob meta class """
-    def menu_map_build(self,grob_meta_class):
-        result = dict()
-        grob_class_name = grob_meta_class.name
-        commands_str = gom.get_environment_value(grob_class_name + '_commands')
-        for command_class_name in commands_str.split(';'):
-            # skipped, already in context menu
-            if command_class_name != 'OGF::SceneGraphSceneCommands': 
-                default_menu_name = command_class_name
-                mclass = gom.resolve_meta_type(command_class_name)
-                # Command may be associated with a base class, so we find
-	        # the name of this base class in the 'grob_class_name' attribute
-	        # of the Command and strip it to generate the menu name.
-                default_menu_name = default_menu_name.removeprefix(
-	            mclass.custom_attribute_value('grob_class_name')
-	        )
-                default_menu_name = default_menu_name.removesuffix('Commands')
-                for i in range(mclass.nb_slots()):
-                    mslot = mclass.ith_slot(i)
-                    menu_name = default_menu_name
-                    if(mslot.has_custom_attribute('menu')):
-                       submenu_name = mslot.custom_attribute_value('menu')
-                       submenu_name.removesuffix('/')
-                       if submenu_name[0] == '/':
-                          menu_name = submenu_name[1:]
-                          # Comment for Graphite (not relevant here, but kept):
-                          # Particular case: SceneGraph commands starting
-                          # with '/', to be rooted in the menu bar,
-                          # are stored in the '/menubar' menumap
-                          # (and handled with specific code in
-                          #  graphite_gui.draw_menu_bar())
-                          if grob_meta_class.name == 'OGF::SceneGraph':
-                             menu_name = 'menubar/'+menu_name
-                       else:
-                          menu_name = menu_name + '/' + submenu_name
-                    if (
-                        gom.meta_types.OGF.Object.find_member(mslot.name)==None
-                            and
-                        gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
-                    ):
-                        self.menu_map_insert(result, menu_name, mslot)   
-        return result
+    # ===== Graphite - Polyscope interop =======================
 
     def register_graphite_object(self,o):
         E = o.I.Editor
@@ -408,79 +491,6 @@ class GraphiteApp:
             self.structure_map[i].remove()
             del self.structure_map[i]
 
-    def draw_menubar(self):
-        if ps.imgui.BeginMenuBar():
-            if ps.imgui.BeginMenu('File'):
-                graphite.draw_object_commands_menus(self.scene_graph)
-                ps.imgui.Separator()           
-                if ps.imgui.MenuItem('show all'):
-                    for objname in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname].set_enabled(True)
-                if ps.imgui.MenuItem('hide all'):
-                    for objname in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname].set_enabled(False)
-                ps.imgui.Separator()
-                if ps.imgui.MenuItem('quit'):
-                    self.running = False
-                ps.imgui.EndMenu()
-            ps.imgui.EndMenuBar()
-
-    def draw_scenegraph_GUI(self):
-        C = self.scene_graph.current()
-        if C != None:
-            nv = C.I.Editor.nb_vertices
-            nf = C.I.Editor.nb_facets
-            ps.imgui.Text(C.name)
-            ps.imgui.Text('   vertices: ' + str(nv))
-            ps.imgui.Text('   facets: ' + str(nf))
-        objects = dir(self.scene_graph.objects)
-        ps.imgui.BeginListBox('##Objects',[-1,200])
-        for objname in objects:
-            sel,_=ps.imgui.Selectable(
-                objname, (objname == self.scene_graph.current().name),
-                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick
-            )
-            if sel:
-                self.scene_graph.current_object = objname
-                if ps.imgui.IsMouseDoubleClicked(0):
-                    for objname2 in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname2].set_enabled(
-                            objname2==objname
-                        )
-            
-            if ps.imgui.BeginPopupContextItem(objname+'##ops'):
-                if ps.imgui.MenuItem('delete object'):
-                    self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.delete_current)
-                
-                if ps.imgui.MenuItem('rename object'):
-                    self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.rename_current)
-
-                if ps.imgui.MenuItem('duplicate object'):
-                    self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.duplicate_current)
-
-                if ps.imgui.MenuItem('commit transform'):
-                    self.commit_transform(getattr(self.scene_graph.objects,objname))
-                
-                ps.imgui.Separator() 
-                self.draw_menumap(
-                    self.menu_map,getattr(self.scene_graph.objects,objname)
-                )
-                ps.imgui.EndPopup()	      
-        ps.imgui.EndListBox()
-        
-
-    def draw_GUI(self):
-        ps.imgui.SetNextWindowPos([350,10])
-        ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
-        ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
-        self.draw_menubar()
-        self.draw_scenegraph_GUI()
-        self.draw_command()
-        ps.imgui.End()
-
     def commit_transform(self, o):
         structure = self.structure_map[o.name]
         xform = structure.get_transform()
@@ -500,14 +510,15 @@ class GraphiteApp:
 
         
 #=====================================================
-# Initialize Graphite, load objects from cmd line args
-# Initialize polyscope
+# Graphite application
 
 graphite = GraphiteApp()
 
 #=====================================================
 # Add custom commands to Graphite Object Model
 
+# extracts a component from a vector attribute and
+# displays it in Polyscope
 def extract_component(attr_name, component, o, method):
     grob = o.grob
     component = int(component) # all args are passed as strings
@@ -531,6 +542,6 @@ mslot.add_arg('component', gom.meta_types.int, '0')
 graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
-
+# Initialize Polyscope and enter app main loop
 ps.init()
 graphite.run(sys.argv[1:])
