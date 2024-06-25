@@ -409,10 +409,10 @@ def draw_graphite_gui():
            ps.imgui.Separator()           
            if ps.imgui.MenuItem('show all'):
                 for objname in dir(scene_graph.objects):
-                    ps.get_surface_mesh(objname).set_enabled(True)
+                    command.structure_map[objname].set_enabled(True)
            if ps.imgui.MenuItem('hide all'):
                 for objname in dir(scene_graph.objects):
-                    ps.get_surface_mesh(objname).set_enabled(False)
+                    command.structure_map[objname].set_enabled(False)
            ps.imgui.Separator()
            if ps.imgui.MenuItem('quit'):
                running = False
@@ -437,7 +437,9 @@ def draw_graphite_gui():
             scene_graph.current_object = objname
             if ps.imgui.IsMouseDoubleClicked(0):
                 for objname2 in dir(scene_graph.objects):
-                    ps.get_surface_mesh(objname2).set_enabled(objname2==objname)
+                    command.structure_map[objname2].set_enabled(
+                        objname2==objname
+                    )
             
         if ps.imgui.BeginPopupContextItem(objname+'##ops'):
             if ps.imgui.MenuItem('delete object'):
@@ -489,6 +491,9 @@ def draw_graphite_gui():
     command.draw()
     ps.imgui.End()
     
+#=====================================================
+# Initialize Graphite, load objects from cmd line args
+# Initialize polyscope
 
 scene_graph = gom.meta_types.OGF.SceneGraph.create()
 for f in sys.argv[1:]:
@@ -499,21 +504,28 @@ ps.set_open_imgui_window_for_user_callback(False)
 ps.set_user_callback(draw_graphite_gui)
 
 #=====================================================
-# Add custom command to Graphite Object Model
+# Add custom commands to Graphite Object Model
 
-def show_attribute(name, o, method):
+def extract_component(attr_name, component, o, method):
     grob = o.grob
-    attr_array = np.asarray(grob.I.Editor.find_attribute('vertices.'+name))
-    print(attr_array)
-    ps.get_surface_mesh(grob.name).add_scalar_quantity(name, attr_array)
+    component = int(component) # all args are passed as strings
+    attr_array = np.asarray(
+        grob.I.Editor.find_attribute('vertices.'+attr_name)
+    )
+    attr_array = attr_array[:,component]
+    command.structure_map[grob.name].add_scalar_quantity(
+        attr_name+'['+str(component)+']', attr_array
+    )
 
 mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
     'OGF::MeshGrobPolyScopeCommands'
 )
 mclass.add_constructor()
-mslot = mclass.add_slot('show_attribute',show_attribute)
+mslot = mclass.add_slot('extract_component',extract_component)
 mslot.create_custom_attribute('keep_structures','true')
-mslot.add_arg('name', gom.meta_types.std.string)
+mslot.create_custom_attribute('menu','/Attributes/Polyscope Display')
+mslot.add_arg('attr_name', gom.meta_types.std.string)
+mslot.add_arg('component', gom.meta_types.int, '0')
 scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
