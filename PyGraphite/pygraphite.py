@@ -268,6 +268,8 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    # the closure passed to set_command() may be in the form grob.interface.method or
+    # simply grob.method. This function gets the grob in both cases.
     def get_grob(self,request):
         object = request.object()
         if(hasattr(object,'grob')):
