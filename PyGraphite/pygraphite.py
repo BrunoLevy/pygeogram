@@ -10,10 +10,12 @@ class GraphiteApp:
 
     #===== Application logic =============================================
 
+    # callback called whenever geogram prints something
+    # rem: a 'static class method', because if I use a regular method
+    # it crashes (don't know why for now, to be investigated...)
     def print_CB(str):
         GraphiteApp.instance.show_terminal=True
         GraphiteApp.instance.print(str)
-        # rem: gom.connect does not work with closures, to be checked
 
     def __init__(self):
         GraphiteApp.instance = self
@@ -26,9 +28,8 @@ class GraphiteApp:
         self.show_terminal = False
         self.application = gom.meta_types.OGF.ApplicationBase.create()
         self.scene_graph.application = self.application
-        gom.connect(self.application.out,    GraphiteApp.print_CB)
-        gom.connect(self.application.err,    GraphiteApp.print_CB)
-        # gom.connect(self.application.status, GraphiteApp.print_CB)
+        gom.connect(self.application.out, GraphiteApp.print_CB)
+        gom.connect(self.application.err, GraphiteApp.print_CB)        
         
     def run(self,args):
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
