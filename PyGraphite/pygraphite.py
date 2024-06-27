@@ -88,6 +88,8 @@ class GraphiteApp:
     def draw_menubar(self):
         if ps.imgui.BeginMenuBar():
             if ps.imgui.BeginMenu('File'):
+                graphite.draw_request_menuitem(self.scene_graph.load_object)
+                graphite.draw_request_menuitem(self.scene_graph.save)
                 graphite.draw_object_commands_menus(self.scene_graph)
                 ps.imgui.Separator()           
                 if ps.imgui.MenuItem('show all'):
@@ -155,7 +157,10 @@ class GraphiteApp:
                     self.commit_transform(
                         getattr(self.scene_graph.objects,objname)
                     )
-                
+
+                if ps.imgui.MenuItem('save object'):
+                    self.set_command(getattr(self.scene_graph.objects,objname).save)
+                    
                 ps.imgui.Separator() 
                 self.draw_menumap(
                     self.menu_map,getattr(self.scene_graph.objects,objname)
@@ -166,16 +171,16 @@ class GraphiteApp:
     """ Draws the GUI for the current Graphite command """
     def draw_command(self):
         if self.request != None:
-            grob = self.request.object().grob
+            grob = self.get_grob(self.request)
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
                 if self.scene_graph.current() != None:
                     objname = ( objname + ', current=' +
                                 self.scene_graph.current().name )
-            else:                
+            else:
                 objname = grob.name
                 
-            ps.imgui.Text('Object: '  + objname)
+            ps.imgui.Text('Object: ' + objname)
             ps.imgui.Text(
                 'Command: ' + self.request.method().name.replace('_',' ')
             )
@@ -229,7 +234,7 @@ class GraphiteApp:
                 ps.imgui.EndListBox()
             meta_class = mmethod.container_meta_class()                
             if ps.imgui.Button('OK'):
-                grob = self.request.object().grob
+                grob = self.get_grob(self.request)
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.unregister_graphite_objects()
                 self.invoke_command()
@@ -237,7 +242,9 @@ class GraphiteApp:
                         grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
                         grob.I.Editor.nb_facets != 0
                 ):
-                    self.request.object().grob.I.Surface.triangulate()
+                    grob = self.get_grob(self.request)
+                    if grob != None and grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+                        grob.I.Surface.triangulate()
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.register_graphite_objects()
                 graphite.reset_command()
@@ -245,7 +252,7 @@ class GraphiteApp:
                 ps.imgui.SetTooltip('Apply and close command')
             ps.imgui.SameLine()
             if ps.imgui.Button('Apply'):
-                grob = self.request.object().grob
+                grob = self.get_grob(self.request)
                 if not mmethod.has_custom_attribute('keep_structures'):
                     self.unregister_graphite_objects()
                 self.invoke_command()
@@ -261,6 +268,13 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    def get_grob(self,request):
+        object = request.object()
+        if(hasattr(object,'grob')):
+            return object.grob
+        else:
+            return object
+                
     #===== Commands management ==============================================
 
     """ Sets current Graphite command, edited in the GUI """
