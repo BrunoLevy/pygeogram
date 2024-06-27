@@ -14,7 +14,7 @@ class GraphiteApp:
         GraphiteApp.instance.show_terminal=True
         GraphiteApp.instance.print(str)
         # rem: gom.connect does not work with closures, to be checked
-        
+
     def __init__(self):
         GraphiteApp.instance = self
         self.reset_command()
@@ -68,6 +68,14 @@ class GraphiteApp:
         self.draw_scenegraph_GUI()
         self.draw_command()
         ps.imgui.End()
+        self.draw_terminal_window()
+
+    def print(self, str):
+        self.message = self.message + str 
+        
+    #====== Main elements of GUI ==========================================
+
+    def draw_terminal_window(self):
         if self.show_terminal: # TODO: find a way of making 'x' close the wndow
             ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-200])
             ps.imgui.SetNextWindowSize([600,190])
@@ -75,11 +83,6 @@ class GraphiteApp:
             ps.imgui.Text(self.message)
             ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
             ps.imgui.End()
-
-    def print(self, str):
-        self.message = self.message + str 
-        
-    #====== Main elements of GUI ==========================================
 
     def draw_menubar(self):
         if ps.imgui.BeginMenuBar():
