@@ -3,25 +3,45 @@ import numpy as np
 import gompy
 import math,sys,time
 
+global graphite
+
+
 class GraphiteApp:
 
     #===== Application logic =============================================
-    
+
+    def print_CB(str):
+        GraphiteApp.instance.show_terminal=True
+        GraphiteApp.instance.print(str)
+        # rem: gom.connect does not work with closures, to be checked
+        
     def __init__(self):
+        GraphiteApp.instance = self
         self.reset_command()
-        self.structure_map = {}
+        self.structure_map = {} # graphite object name -> polyscope structure
+        self.menu_map = {}      # dictionary tree that represents menus
         self.running = False
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
-
+        self.message = ''
+        self.show_terminal = False
+        self.application = gom.meta_types.OGF.ApplicationBase.create()
+        self.scene_graph.application = self.application
+        gom.connect(self.application.out,    GraphiteApp.print_CB)
+        gom.connect(self.application.err,    GraphiteApp.print_CB)
+        # gom.connect(self.application.status, GraphiteApp.print_CB)
+        
     def run(self,args):
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
-        for f in args:
+        for f in args[1:]:
             self.scene_graph.load_object(f)
         self.register_graphite_objects()
         ps.set_open_imgui_window_for_user_callback(False)
         ps.set_user_callback(self.draw_GUI)
         self.running = True
         quiet_frames = 0
+        self.scene_graph.I.Scene.set_parameter('log:verbose','true')
+        self.scene_graph.I.Scene.set_parameter('log:pretty','false')
+        self.application.start()
         while self.running:
             ps.frame_tick()
             # Mechanism to make it sleep a little bit
@@ -41,13 +61,23 @@ class GraphiteApp:
                 time.sleep(0.05)
 
     def draw_GUI(self):
-        ps.imgui.SetNextWindowPos([350,10])
+        ps.imgui.SetNextWindowPos([340,10])
         ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
         ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
         self.draw_menubar()
         self.draw_scenegraph_GUI()
         self.draw_command()
         ps.imgui.End()
+        if self.show_terminal: # TODO: find a way of making 'x' close the wndow
+            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-200])
+            ps.imgui.SetNextWindowSize([600,190])
+            ps.imgui.Begin('Terminal',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
+            ps.imgui.Text(self.message)
+            ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
+            ps.imgui.End()
+
+    def print(self, str):
+        self.message = self.message + str 
         
     #====== Main elements of GUI ==========================================
 
@@ -65,6 +95,12 @@ class GraphiteApp:
                 ps.imgui.Separator()
                 if ps.imgui.MenuItem('quit'):
                     self.running = False
+                ps.imgui.EndMenu()
+            if ps.imgui.BeginMenu('Windows'):
+                if ps.imgui.MenuItem(
+                    'show terminal', None, self.show_terminal
+                ):
+                    self.show_terminal = not self.show_terminal
                 ps.imgui.EndMenu()
             ps.imgui.EndMenuBar()
 
@@ -95,18 +131,26 @@ class GraphiteApp:
             if ps.imgui.BeginPopupContextItem(objname+'##ops'):
                 if ps.imgui.MenuItem('delete object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.delete_current)
+                    graphite.set_command(
+                        self.scene_graph.I.Scene.delete_current
+                    )
                 
                 if ps.imgui.MenuItem('rename object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.rename_current)
+                    graphite.set_command(
+                        self.scene_graph.I.Scene.rename_current
+                    )
 
                 if ps.imgui.MenuItem('duplicate object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(self.scene_graph.I.Scene.duplicate_current)
+                    graphite.set_command(
+                        self.scene_graph.I.Scene.duplicate_current
+                    )
 
                 if ps.imgui.MenuItem('commit transform'):
-                    self.commit_transform(getattr(self.scene_graph.objects,objname))
+                    self.commit_transform(
+                        getattr(self.scene_graph.objects,objname)
+                    )
                 
                 ps.imgui.Separator() 
                 self.draw_menumap(
@@ -122,7 +166,8 @@ class GraphiteApp:
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
                 if self.scene_graph.current() != None:
-                    objname = objname + ', current='+self.scene_graph.current().name
+                    objname = ( objname + ', current=' +
+                                self.scene_graph.current().name )
             else:                
                 objname = grob.name
                 
@@ -304,7 +349,9 @@ class GraphiteApp:
                 mslot = v
                 mclass = mslot.container_meta_class()
                 if ps.imgui.MenuItem(k.replace('_',' ')):
-                    self.set_command(getattr(o.query_interface(mclass.name),mslot.name))
+                    self.set_command(
+                        getattr(o.query_interface(mclass.name),mslot.name)
+                    )
                 if (ps.imgui.IsItemHovered() and
                     mslot.has_custom_attribute('help')):
                     ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
@@ -530,6 +577,7 @@ class GraphiteApp:
 
 graphite = GraphiteApp()
 
+
 #=====================================================
 # Add custom commands to Graphite Object Model
 
@@ -579,7 +627,9 @@ mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
 )
 mclass.add_constructor()
 mslot = mclass.add_slot('extract_component',extract_component)
-mslot.create_custom_attribute('help','sends component of a vector attribute to Polyscope')
+mslot.create_custom_attribute(
+    'help','sends component of a vector attribute to Polyscope'
+)
 mslot.create_custom_attribute('keep_structures','true')
 mslot.create_custom_attribute('menu','/Attributes/Polyscope Display')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
@@ -596,4 +646,4 @@ graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 #=====================================================
 # Initialize Polyscope and enter app main loop
 ps.init()
-graphite.run(sys.argv[1:])
+graphite.run(sys.argv)
