@@ -585,11 +585,13 @@ graphite = GraphiteApp()
 # Add custom commands to Graphite Object Model
 
 menum = gom.meta_types.OGF.MetaEnum.create('FlipAxis')
-menum.add_value('-X',0)
-menum.add_value('-Y',1)
-menum.add_value('-Z',2)
-menum.add_value('YZX',3)
-menum.add_value('ZXY',4)
+menum.add_value('FLIP_X',0)
+menum.add_value('FLIP_Y',1)
+menum.add_value('FLIP_Z',2)
+menum.add_value('ROT_X',3)
+menum.add_value('ROT_Y',4)
+menum.add_value('ROT_Z',5)
+menum.add_value('PERM_XYZ',6)
 gom.bind_meta_type(menum)
 
 # extracts a component from a vector attribute and
@@ -611,16 +613,23 @@ def flip(axis, o, method):
     grob = o.grob
     # points array can be modified in-place !
     pts_array = np.asarray(grob.I.Editor.get_points())
-    if   axis == '-X':
+    if   axis == 'FLIP_X':
         pts_array[:,0] = -pts_array[:,0]
-    elif axis == '-Y':
+    elif axis == 'FLIP_Y':
         pts_array[:,1] = -pts_array[:,1]
-    elif axis == '-Z':
-        pts_array[:,2] = -pts_array[:,2]        
-    elif axis == 'YZX':
+    elif axis == 'FLIP_Z':
+        pts_array[:,2] = -pts_array[:,2]
+    elif axis == 'ROT_X':
+        pts_array[:,[0,1,2]] = pts_array[:,[0,2,1]]
+        pts_array[:,1] = -pts_array[:,1]
+    elif axis == 'ROT_Y':
+        pts_array[:,[0,1,2]] = pts_array[:,[2,1,0]]
+        pts_array[:,2] = -pts_array[:,2]
+    elif axis == 'ROT_Z':
+        pts_array[:,[0,1,2]] = pts_array[:,[1,0,2]]
+        pts_array[:,0] = -pts_array[:,0]        
+    elif axis == 'PERM_XYZ':
         pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
-    elif axis == 'ZXY':
-        pts_array[:,[0,1,2]] = pts_array[:,[2,0,1]]
     structure = graphite.structure_map[grob.name]
     structure.update_vertex_positions(pts_array) 
 
