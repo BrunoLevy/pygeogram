@@ -37,25 +37,30 @@ class GraphiteApp:
             
     def __init__(self):
         GraphiteApp.instance = self
-        self.reset_command()
-        self.structure_map = {} # graphite object name -> polyscope structure
-        self.menu_map = {}      # dictionary tree that represents menus
         self.running = False
+        
+        self.menu_map = {}            # dictionary tree that represents menus
+        self.reset_command()
+        self.queued_execute_command = False # command execution is queued, to
+        self.queued_close_command   = False # happen out off polyscope CB
+        
+        self.structure_map = {} # graphite object name -> polyscope structure
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
+        
+        # create a Graphite ApplicationBase. It has the printing and progress callbacks,
+        # that are redirected here to some functions (ending with _CB).
+        application = gom.meta_types.OGF.ApplicationBase.create()
+        self.scene_graph.application = application
         self.message = ''
         self.message_changed_frames = 0
         self.show_terminal = False
-        self.application = gom.meta_types.OGF.ApplicationBase.create()
-        self.scene_graph.application = self.application
-        self.queued_execute_command = False # command execution is queued, to
-        self.queued_close_command   = False # happen out off polyscope CB
-        gom.connect(self.application.out, GraphiteApp.print_CB)
-        gom.connect(self.application.err, GraphiteApp.print_CB)
+        gom.connect(application.out, GraphiteApp.print_CB)
+        gom.connect(application.err, GraphiteApp.print_CB)
         self.progress_task = None
         self.progress_percent = 0
-        gom.connect(self.application.notify_progress_begin, GraphiteApp.progress_begin_CB)
-        gom.connect(self.application.notify_progress,       GraphiteApp.progress_CB)
-        gom.connect(self.application.notify_progress_end,   GraphiteApp.progress_end_CB)
+        gom.connect(application.notify_progress_begin, GraphiteApp.progress_begin_CB)
+        gom.connect(application.notify_progress,       GraphiteApp.progress_CB)
+        gom.connect(application.notify_progress_end,   GraphiteApp.progress_end_CB)
         
     def run(self,args):
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
@@ -68,7 +73,7 @@ class GraphiteApp:
         quiet_frames = 0
         self.scene_graph.I.Scene.set_parameter('log:verbose','true')
         self.scene_graph.I.Scene.set_parameter('log:pretty','false')
-        self.application.start()
+        self.scene_graph.application.start()
         while self.running:
             ps.frame_tick()
             self.handle_queued_command() # out of frame tick so that CBs can redraw GUI
