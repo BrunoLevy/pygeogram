@@ -41,8 +41,8 @@ class GraphiteApp:
         
         self.menu_map = {}            # dictionary tree that represents menus
         self.reset_command()
-        self.queued_execute_command = False # command execution is queued, to
-        self.queued_close_command   = False # happen out off polyscope CB
+        self.queued_execute_command = False # command execution is queued, for 
+        self.queued_close_command   = False #   making it happen out off polyscope CB
         
         self.structure_map = {} # graphite object name -> polyscope structure
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
@@ -71,21 +71,26 @@ class GraphiteApp:
         for f in args[1:]:
             self.scene_graph.load_object(f)
         self.register_graphite_objects()
-        ps.set_open_imgui_window_for_user_callback(False)
+        ps.set_open_imgui_window_for_user_callback(False) # we draw our own window
         ps.set_user_callback(self.draw_GUI)
         self.running = True
         quiet_frames = 0
-        self.scene_graph.I.Scene.set_parameter('log:verbose','true')
-        self.scene_graph.I.Scene.set_parameter('log:pretty','false')
         self.scene_graph.application.start()
         while self.running:
             ps.frame_tick()
-            self.handle_queued_command() # out of frame tick so that CBs can redraw GUI
+            
+            # Handle command out of frame tick so that CBs can redraw GUI by calling
+            # frame tick again.
+            self.handle_queued_command() 
+            
             # Mechanism to make it sleep a little bit
             # if no mouse click/mouse drag happened
             # since 2000 frames or more. This leaves
             # CPU power for other apps and/or lets the
-            # CPU cool down
+            # CPU cool down. There are two levels of
+            # cooling down depending on how many frames
+            # were "quiet" (that is, without mouse click
+            # or mouse drag)
             if (
                     ps.imgui.GetIO().MouseDown[0] or
                     ps.imgui.GetIO().MouseDown[1] or
@@ -94,8 +99,10 @@ class GraphiteApp:
                 quiet_frames = 0
             else:
                 quiet_frames = quiet_frames + 1
-            if quiet_frames > 2000:
-                time.sleep(0.05)
+            if quiet_frames > 2200:
+                time.sleep(0.5)  # gros dodo: 1/2 second (after 2000 + 200*1/20th second)
+            elif quiet_frames > 2000:
+                time.sleep(0.05) # petit dodo: 1/20th second
 
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([340,10])
@@ -110,7 +117,7 @@ class GraphiteApp:
 
     def print(self, str):
         self.message = self.message + str
-        self.message_changed_frames = 2
+        self.message_changed_frames = 2 # needs two frames forSetScrollY() to do the job
         
     #====== Main elements of GUI ==========================================
 
@@ -694,8 +701,8 @@ gom.bind_meta_type(menum)
 
 # extracts a component from a vector attribute and
 # displays it in Polyscope
-def extract_component(attr_name, component, o, method):
-    grob = o.grob
+def extract_component(attr_name, component, interface, method):
+    grob = interface.grob
     component = int(component) # all args are passed as strings
     attr_array = np.asarray(
         grob.I.Editor.find_attribute('vertices.'+attr_name)
@@ -707,8 +714,8 @@ def extract_component(attr_name, component, o, method):
 
 # flips axes of a mesh
 # note the in-place modification of object's coordinates
-def flip(axis, o, method):
-    grob = o.grob
+def flip(axis, interface, method):
+    grob = interface.grob
     # points array can be modified in-place !
     pts_array = np.asarray(grob.I.Editor.get_points())
     if   axis == 'FLIP_X':
@@ -741,7 +748,7 @@ mslot.create_custom_attribute(
     'help','sends component of a vector attribute to Polyscope'
 )
 mslot.create_custom_attribute('keep_structures','true')
-mslot.create_custom_attribute('menu','/Attributes/Polyscope Display')
+mslot.create_custom_attribute('menu','/Attributes/Polyscope')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
 mslot.add_arg('component', gom.meta_types.int, '0')
 
