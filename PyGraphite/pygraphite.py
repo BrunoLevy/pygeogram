@@ -51,11 +51,15 @@ class GraphiteApp:
         # that are redirected here to some functions (ending with _CB).
         application = gom.meta_types.OGF.ApplicationBase.create()
         self.scene_graph.application = application
+
+        # printing callbacks
         self.message = ''
         self.message_changed_frames = 0
         self.show_terminal = False
         gom.connect(application.out, GraphiteApp.print_CB)
         gom.connect(application.err, GraphiteApp.print_CB)
+
+        # progress callbacks
         self.progress_task = None
         self.progress_percent = 0
         gom.connect(application.notify_progress_begin, GraphiteApp.progress_begin_CB)
@@ -129,8 +133,8 @@ class GraphiteApp:
             ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-50])
             ps.imgui.SetNextWindowSize([600,40])
             ps.imgui.Begin('Progress',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
-            if ps.imgui.Button('x'):
-                self.print('CANCEL TASK NOT IMPLEMENTED YET')
+            if ps.imgui.Button('X'):
+                self.scene_graph.application.progress_cancel()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Cancel task')
             ps.imgui.SameLine()
