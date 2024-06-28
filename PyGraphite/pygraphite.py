@@ -45,7 +45,6 @@ class GraphiteApp:
     # constructor
             
     def __init__(self):
-        GraphiteApp.instance = self
         self.running = False
         
         self.menu_map = {}            # dictionary tree that represents menus
@@ -695,7 +694,6 @@ class GraphiteApp:
 # Graphite application
 
 graphite = GraphiteApp()
-
 
 #=====================================================
 # Add custom commands to Graphite Object Model
