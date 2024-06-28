@@ -16,6 +16,8 @@ class GraphiteApp:
     def print_CB(str):
         GraphiteApp.instance.show_terminal=True
         GraphiteApp.instance.print(str)
+        if GraphiteApp.instance.running:
+            ps.frame_tick()
 
     def __init__(self):
         GraphiteApp.instance = self
@@ -28,6 +30,8 @@ class GraphiteApp:
         self.show_terminal = False
         self.application = gom.meta_types.OGF.ApplicationBase.create()
         self.scene_graph.application = self.application
+        self.queued_execute_command = False # command execution is queued, to
+        self.queued_close_command   = False # happen out off polyscope CB
         gom.connect(self.application.out, GraphiteApp.print_CB)
         gom.connect(self.application.err, GraphiteApp.print_CB)        
         
@@ -45,6 +49,7 @@ class GraphiteApp:
         self.application.start()
         while self.running:
             ps.frame_tick()
+            self.handle_queued_command() # out of frame tick so that CBs can redraw GUI
             # Mechanism to make it sleep a little bit
             # if no mouse click/mouse drag happened
             # since 2000 frames or more. This leaves
@@ -88,16 +93,16 @@ class GraphiteApp:
     def draw_menubar(self):
         if ps.imgui.BeginMenuBar():
             if ps.imgui.BeginMenu('File'):
-                graphite.draw_request_menuitem(self.scene_graph.load_object)
-                graphite.draw_request_menuitem(self.scene_graph.save)
-                graphite.draw_object_commands_menus(self.scene_graph)
+                self.draw_request_menuitem(self.scene_graph.load_object)
+                self.draw_request_menuitem(self.scene_graph.save)
+                self.draw_object_commands_menus(self.scene_graph)
                 ps.imgui.Separator()           
                 if ps.imgui.MenuItem('show all'):
                     for objname in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname].set_enabled(True)
+                        self.structure_map[objname].set_enabled(True)
                 if ps.imgui.MenuItem('hide all'):
                     for objname in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname].set_enabled(False)
+                        self.structure_map[objname].set_enabled(False)
                 ps.imgui.Separator()
                 if ps.imgui.MenuItem('quit'):
                     self.running = False
@@ -130,26 +135,26 @@ class GraphiteApp:
                 self.scene_graph.current_object = objname
                 if ps.imgui.IsMouseDoubleClicked(0):
                     for objname2 in dir(self.scene_graph.objects):
-                        graphite.structure_map[objname2].set_enabled(
+                        self.structure_map[objname2].set_enabled(
                             objname2==objname
                         )
             
             if ps.imgui.BeginPopupContextItem(objname+'##ops'):
                 if ps.imgui.MenuItem('delete object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(
+                    self.set_command(
                         self.scene_graph.I.Scene.delete_current
                     )
                 
                 if ps.imgui.MenuItem('rename object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(
+                    self.set_command(
                         self.scene_graph.I.Scene.rename_current
                     )
 
                 if ps.imgui.MenuItem('duplicate object'):
                     self.scene_graph.current_object = objname
-                    graphite.set_command(
+                    self.set_command(
                         self.scene_graph.I.Scene.duplicate_current
                     )
 
@@ -234,40 +239,56 @@ class GraphiteApp:
                 ps.imgui.EndListBox()
             meta_class = mmethod.container_meta_class()                
             if ps.imgui.Button('OK'):
-                grob = self.get_grob(self.request)
-                if not mmethod.has_custom_attribute('keep_structures'):
-                    self.unregister_graphite_objects()
-                self.invoke_command()
-                if (
-                        grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
-                        grob.I.Editor.nb_facets != 0
-                ):
-                    grob = self.get_grob(self.request)
-                    if grob != None and grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
-                        grob.I.Surface.triangulate()
-                if not mmethod.has_custom_attribute('keep_structures'):
-                    self.register_graphite_objects()
-                graphite.reset_command()
+                self.queued_execute_command = True
+                self.queued_close_command = True
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and close command')
             ps.imgui.SameLine()
             if ps.imgui.Button('Apply'):
-                grob = self.get_grob(self.request)
-                if not mmethod.has_custom_attribute('keep_structures'):
-                    self.unregister_graphite_objects()
-                self.invoke_command()
-                if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
-                    self.request.object().grob.I.Surface.triangulate()
-                if not mmethod.has_custom_attribute('keep_structures'):
-                    self.register_graphite_objects()
+                self.queued_execute_command = True
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Apply and keep command open')
             ps.imgui.SameLine()
             if ps.imgui.Button('Cancel'):
-                graphite.reset_command()
+                self.reset_command()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    def handle_queued_command(self):
+        if self.queued_execute_command:
+            grob = self.get_grob(self.request)
+            mmethod = self.request.method()
+            objects_before_command = dir(self.scene_graph.objects)
+            visible_objects_before_command = []
+
+            # Hide everything, so that we can work 
+            if not mmethod.has_custom_attribute('keep_structures'):
+                for objname in dir(self.scene_graph.objects):
+                    structure = self.structure_map[objname]
+                    if structure.is_enabled():
+                        visible_objects_before_command.append(objname)
+                        structure.set_enabled(False)
+                        
+            self.invoke_command()
+            
+            if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+                grob.I.Surface.triangulate()
+
+            # Unregister all objects that were previously there
+            # Register all objects, and restore saved visible flag
+            if not mmethod.has_custom_attribute('keep_structures'):
+                for objname in objects_before_command:
+                    self.unregister_graphite_object(objname)
+                for objname in dir(self.scene_graph.objects):
+                    structure = self.register_graphite_object(objname)
+                    if objname in visible_objects_before_command:
+                        structure.set_enabled(True)
+                        
+            self.queued_execute_command = False
+        if self.queued_close_command:
+            self.reset_command()
+            self.queued_close_command = False
+                
     # the closure passed to set_command() may be in the form grob.interface.method or
     # simply grob.method. This function gets the grob in both cases.
     def get_grob(self,request):
@@ -284,6 +305,8 @@ class GraphiteApp:
         self.request = request
         self.args = {}
         mmethod = self.request.method()
+        if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
+            self.args['invoked_from_gui'] = 'true'
         for i in range(mmethod.nb_args()):
             val = ''
             if mmethod.ith_arg_has_default_value(i):
@@ -539,7 +562,8 @@ class GraphiteApp:
 
     # ===== Graphite - Polyscope interop =======================
 
-    def register_graphite_object(self,o):
+    def register_graphite_object(self,objname):
+        o = self.scene_graph.resolve(objname)
         E = o.I.Editor
         structure = None
         pts = np.asarray(E.get_points())
@@ -564,15 +588,19 @@ class GraphiteApp:
                         attr.removeprefix('vertices.'),
                         attrarray
                     )
+        return structure
         
     def register_graphite_objects(self):
-        for i in dir(self.scene_graph.objects):
-            self.register_graphite_object(self.scene_graph.resolve(i))
-                
+        for objname in dir(self.scene_graph.objects):
+            self.register_graphite_object(objname)
+
+    def unregister_graphite_object(self,objname):
+        self.structure_map[objname].remove()
+        del self.structure_map[objname]
+            
     def unregister_graphite_objects(self):
-        for i in dir(self.scene_graph.objects):
-            self.structure_map[i].remove()
-            del self.structure_map[i]
+        for objname in dir(self.scene_graph.objects):
+            self.unregister_graphite_object(objname)
 
     def commit_transform(self, o):
         structure = self.structure_map[o.name]
@@ -666,7 +694,6 @@ mslot.add_arg('component', gom.meta_types.int, '0')
 
 mslot = mclass.add_slot('flip',flip)
 mslot.create_custom_attribute('help','flips axes of an object')
-mslot.create_custom_attribute('keep_structures','true')
 mslot.create_custom_attribute('menu','/Mesh')
 mslot.add_arg('axis', gom.meta_types.FlipAxis, 'X')
 
