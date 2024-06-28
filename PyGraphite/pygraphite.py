@@ -10,30 +10,39 @@ class GraphiteApp:
 
     #===== Application logic =============================================
 
-    # callback called whenever geogram prints something
-    # rem: a 'static class method', because if I use a regular method
-    # it crashes (don't know why for now, to be investigated...)
-    def print_CB(str):
-        GraphiteApp.instance.show_terminal=True
-        GraphiteApp.instance.print(str)
-        if GraphiteApp.instance.running:
+    # Callback for printing, redirected to terminal and for progress,
+    # redirecting to progress bar
+    # Since commands are queued and called outside PolyScope rendering function,
+    # they can draw an additional frame in need be (by calling PolyScope.frame_tick)
+    
+    def out_CB(self,str):
+        self.print(str)
+        if self.running:
             ps.frame_tick()
 
-    def progress_begin_CB(taskname):
-        GraphiteApp.instance.progress_task = taskname
-        GraphiteApp.instance.progress_percent = 0
-        if GraphiteApp.instance.running:
+    def err_CB(self,str):
+        self.show_terminal=True # make terminal appear if it was hidden
+        self.print(str)
+        if self.running:
+            ps.frame_tick()
+            
+    def progress_begin_CB(self,taskname):
+        self.progress_task = taskname
+        self.progress_percent = 0
+        if self.running:
             ps.frame_tick()
 
-    def progress_CB(progress_percent):
-        GraphiteApp.instance.progress_percent = progress_percent
-        if GraphiteApp.instance.running:
+    def progress_CB(self,progress_percent):
+        self.progress_percent = progress_percent
+        if self.running:
             ps.frame_tick()
 
-    def progress_end_CB():
-        GraphiteApp.instance.progress_task = None
-        if GraphiteApp.instance.running:
+    def progress_end_CB(self):
+        self.progress_task = None
+        if self.running:
             ps.frame_tick()
+
+    # constructor
             
     def __init__(self):
         GraphiteApp.instance = self
@@ -55,17 +64,19 @@ class GraphiteApp:
         # printing callbacks
         self.message = ''
         self.message_changed_frames = 0
-        self.show_terminal = False
-        gom.connect(application.out, GraphiteApp.print_CB)
-        gom.connect(application.err, GraphiteApp.print_CB)
+        self.show_terminal = True
+        gom.connect(application.out, self.out_CB)
+        gom.connect(application.err, self.err_CB)
 
         # progress callbacks
         self.progress_task = None
         self.progress_percent = 0
-        gom.connect(application.notify_progress_begin, GraphiteApp.progress_begin_CB)
-        gom.connect(application.notify_progress,       GraphiteApp.progress_CB)
-        gom.connect(application.notify_progress_end,   GraphiteApp.progress_end_CB)
-        
+        gom.connect(application.notify_progress_begin, self.progress_begin_CB)
+        gom.connect(application.notify_progress,       self.progress_CB)
+        gom.connect(application.notify_progress_end,   self.progress_end_CB)
+
+    #====== Main application loop ==========================================
+    
     def run(self,args):
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
         for f in args[1:]:
@@ -314,6 +325,8 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
+    # this function is called right after PolyScope has finished 
+                
     def handle_queued_command(self):
         if self.queued_execute_command:
             grob = self.get_grob(self.request)
@@ -386,12 +399,10 @@ class GraphiteApp:
 
     """ Inserts an entry in a menumap """
     def menu_map_insert(self, menu_dict, menu_name, mslot):
-        menu_path = menu_name.split('/')
         if menu_name == '':
             menu_dict[mslot.name] = mslot
         else:
-            k = menu_path[0]
-            menu_path = menu_path[1:]
+            k = menu_name.split('/')[0]
             if k not in menu_dict:
                 menu_dict[k] = dict()
             menu_name = menu_name.removeprefix(k)
