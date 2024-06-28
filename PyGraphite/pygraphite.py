@@ -80,6 +80,13 @@ class GraphiteApp:
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
         for f in args[1:]:
             self.scene_graph.load_object(f)
+
+        for objname in dir(self.scene_graph.objects):
+            grob = self.scene_graph.resolve(objname)
+            if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+                grob.I.Surface.triangulate()
+
+            
         self.register_graphite_objects()
         ps.set_open_imgui_window_for_user_callback(False) # we draw our own window
         ps.set_user_callback(self.draw_GUI)
