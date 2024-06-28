@@ -19,6 +19,22 @@ class GraphiteApp:
         if GraphiteApp.instance.running:
             ps.frame_tick()
 
+    def progress_begin_CB(taskname):
+        GraphiteApp.instance.progress_task = taskname
+        GraphiteApp.instance.progress_percent = 0
+        if GraphiteApp.instance.running:
+            ps.frame_tick()
+
+    def progress_CB(progress_percent):
+        GraphiteApp.instance.progress_percent = progress_percent
+        if GraphiteApp.instance.running:
+            ps.frame_tick()
+
+    def progress_end_CB():
+        GraphiteApp.instance.progress_task = None
+        if GraphiteApp.instance.running:
+            ps.frame_tick()
+            
     def __init__(self):
         GraphiteApp.instance = self
         self.reset_command()
@@ -27,13 +43,19 @@ class GraphiteApp:
         self.running = False
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
         self.message = ''
+        self.message_changed_frames = 0
         self.show_terminal = False
         self.application = gom.meta_types.OGF.ApplicationBase.create()
         self.scene_graph.application = self.application
         self.queued_execute_command = False # command execution is queued, to
         self.queued_close_command   = False # happen out off polyscope CB
         gom.connect(self.application.out, GraphiteApp.print_CB)
-        gom.connect(self.application.err, GraphiteApp.print_CB)        
+        gom.connect(self.application.err, GraphiteApp.print_CB)
+        self.progress_task = None
+        self.progress_percent = 0
+        gom.connect(self.application.notify_progress_begin, GraphiteApp.progress_begin_CB)
+        gom.connect(self.application.notify_progress,       GraphiteApp.progress_CB)
+        gom.connect(self.application.notify_progress_end,   GraphiteApp.progress_end_CB)
         
     def run(self,args):
         self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
@@ -75,21 +97,43 @@ class GraphiteApp:
         self.draw_command()
         ps.imgui.End()
         self.draw_terminal_window()
+        self.draw_progressbar_window()
 
     def print(self, str):
-        self.message = self.message + str 
+        self.message = self.message + str
+        self.message_changed_frames = 2
         
     #====== Main elements of GUI ==========================================
 
     def draw_terminal_window(self):
         if self.show_terminal: # TODO: find a way of making 'x' close the wndow
-            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-200])
-            ps.imgui.SetNextWindowSize([600,190])
+            height = 160
+            if self.progress_task == None:
+                height = height + 40
+            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-220])
+            ps.imgui.SetNextWindowSize([600,height])
             ps.imgui.Begin('Terminal',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
             ps.imgui.Text(self.message)
-            ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
+            if self.message_changed_frames > 0:
+                ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
+                self.message_changed_frames = self.message_changed_frames - 1
             ps.imgui.End()
 
+    def draw_progressbar_window(self):
+        if self.progress_task != None:
+            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-50])
+            ps.imgui.SetNextWindowSize([600,40])
+            ps.imgui.Begin('Progress',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
+            if ps.imgui.Button('x'):
+                self.print('CANCEL TASK NOT IMPLEMENTED YET')
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Cancel task')
+            ps.imgui.SameLine()
+            ps.imgui.Text(self.progress_task)
+            ps.imgui.SameLine()
+            ps.imgui.ProgressBar(self.progress_percent/100.0, [-1,0])
+            ps.imgui.End()
+            
     def draw_menubar(self):
         if ps.imgui.BeginMenuBar():
             if ps.imgui.BeginMenu('File'):
