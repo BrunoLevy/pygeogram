@@ -120,6 +120,8 @@ class GraphiteApp:
                 time.sleep(0.5)  # gros dodo: 1/2 second (after 2000 + 200*1/20th second)
             elif quiet_frames > 2000:
                 time.sleep(0.05) # petit dodo: 1/20th second
+            else:
+                time.sleep(0.01) # micro-sieste: 1/100th second
 
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([340,10])
@@ -700,11 +702,15 @@ class GraphiteApp:
         ]
         # transform all the vertices
         vertices = np.matmul(vertices,np.transpose(xform))
-        weights = vertices[:,-1]            # get 4th column
-        vertices = vertices[:,:-1]          # get the rest
-        vertices = vertices/weights[:,None] # divice by w
-        np.copyto(object_vertices,vertices) # inject into graphite object
-        structure.reset_transform()      # reset polyscope xform
+        weights  = vertices[:,-1]                 # get 4th column
+        weights  = weights[:,np.newaxis]          # make it a Nx1 matrix
+        vertices = vertices[:,:-1]                # get the x,y,z coords
+        vertices = vertices/weights               # divide the x,y,z coords by w
+        # Could be written also in 1 line only, as:
+        #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
+        
+        np.copyto(object_vertices,vertices)       # inject into graphite object
+        structure.reset_transform()               # reset polyscope xform
         # tell polyscope that vertices have changed
         structure.update_vertex_positions(object_vertices) 
 
@@ -715,7 +721,9 @@ class GraphiteApp:
 graphite = GraphiteApp()
 
 #=====================================================
-# Add custom commands to Graphite Object Model
+# Add custom commands to Graphite Object Model, so that
+# they appear in the menus, exactly like native Graphite
+# commands written in C++
 
 menum = gom.meta_types.OGF.MetaEnum.create('FlipAxis')
 menum.add_value('FLIP_X',0)
