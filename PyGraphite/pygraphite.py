@@ -122,7 +122,10 @@ class GraphiteApp:
                 time.sleep(0.05) # petit dodo: 1/20th second
             else:
                 time.sleep(0.01) # micro-sieste: 1/100th second
-
+        self.unregister_graphite_objects()
+        self.scene_graph.clear()
+        self.scene_graph.application.stop()
+                
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([340,10])
         ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
@@ -237,11 +240,6 @@ class GraphiteApp:
                         self.scene_graph.I.Scene.duplicate_current
                     )
 
-                if ps.imgui.MenuItem('commit transform'):
-                    self.commit_transform(
-                        getattr(self.scene_graph.objects,objname)
-                    )
-
                 if ps.imgui.MenuItem('save object'):
                     self.set_command(getattr(self.scene_graph.objects,objname).save)
                     
@@ -341,14 +339,20 @@ class GraphiteApp:
             objects_before_command = dir(self.scene_graph.objects)
             visible_objects_before_command = []
 
+            # Commit all transforms (note: does not cost much when
+            # transforms are identity)
+            for objname in dir(self.scene_graph.objects):
+                obj = self.scene_graph.resolve(objname)
+                self.commit_transform(obj)
+            
             # Hide everything, so that we can work without smbdy
             # looking over our shoulder
-            if not mmethod.has_custom_attribute('keep_structures'):
-                for objname in dir(self.scene_graph.objects):
-                    structure = self.structure_map[objname]
-                    if structure.is_enabled():
-                        visible_objects_before_command.append(objname)
-                        structure.set_enabled(False)
+            #if not mmethod.has_custom_attribute('keep_structures'):
+            #    for objname in dir(self.scene_graph.objects):
+            #        structure = self.structure_map[objname]
+            #        if structure.is_enabled():
+            #            visible_objects_before_command.append(objname)
+            #            structure.set_enabled(False)
                         
             self.invoke_command()
 
@@ -696,6 +700,9 @@ class GraphiteApp:
     def commit_transform(self, o):
         structure = self.structure_map[o.name]
         xform = structure.get_transform()
+        # if xform is identity, nothing to do
+        if (xform == np.eye(4)).all():
+            return
         object_vertices = np.asarray(o.I.Editor.get_points())
         vertices = np.c_[  # add a column of 1
             object_vertices, np.ones(object_vertices.shape[0])
