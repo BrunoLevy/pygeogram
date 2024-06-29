@@ -83,7 +83,8 @@ class GraphiteApp:
 
         for objname in dir(self.scene_graph.objects):
             grob = self.scene_graph.resolve(objname)
-            if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+            if (grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
+                grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
             
@@ -358,7 +359,8 @@ class GraphiteApp:
 
             # Polygonal surfaces not supported for now, so we
             # triangulate
-            if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
+            if (grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
+                grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
             # Unregister all objects that were previously there
