@@ -703,7 +703,7 @@ class GraphiteApp:
         structure = self.structure_map[o.name]
         xform = structure.get_transform()
         # if xform is identity, nothing to do
-        if (xform == np.eye(4)).all():
+        if np.allclose(xform,np.eye(4)):
             return
         object_vertices = np.asarray(o.I.Editor.get_points())
         vertices = np.c_[  # add a column of 1
@@ -721,7 +721,10 @@ class GraphiteApp:
         np.copyto(object_vertices,vertices)       # inject into graphite object
         structure.reset_transform()               # reset polyscope xform
         # tell polyscope that vertices have changed
-        structure.update_vertex_positions(object_vertices) 
+        if hasattr(structure,'update_vertex_positions'):
+            structure.update_vertex_positions(object_vertices)
+        if hasattr(structure,'update_point_positions'):
+            structure.update_point_positions(object_vertices)            
 
         
 #=====================================================
