@@ -314,7 +314,6 @@ class GraphiteApp:
                                     mmethod.ith_arg_type(i), tooltip
                                 )
                 ps.imgui.EndListBox()
-            meta_class = mmethod.container_meta_class()                
             if ps.imgui.Button('OK'):
                 self.queued_execute_command = True
                 self.queued_close_command = True
@@ -340,7 +339,8 @@ class GraphiteApp:
             objects_before_command = dir(self.scene_graph.objects)
             visible_objects_before_command = []
 
-            # Hide everything, so that we can work 
+            # Hide everything, so that we can work without smbdy
+            # looking over our shoulder
             if not mmethod.has_custom_attribute('keep_structures'):
                 for objname in dir(self.scene_graph.objects):
                     structure = self.structure_map[objname]
@@ -349,7 +349,9 @@ class GraphiteApp:
                         structure.set_enabled(False)
                         
             self.invoke_command()
-            
+
+            # Polygonal surfaces not supported for now, so we
+            # triangulate
             if grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob):
                 grob.I.Surface.triangulate()
 
@@ -392,7 +394,7 @@ class GraphiteApp:
                 val = mmethod.ith_arg_default_value_as_string(i)
             self.args[mmethod.ith_arg_name(i)] = val
 
-    """ Reset_Commands current Graphite command """
+    """ Resets current Graphite command """
     def reset_command(self):
         self.request = None
         self.args = None
@@ -403,12 +405,22 @@ class GraphiteApp:
 
     #===== MenuMap ===========================================================
 
+    # The structure of the object's menu is deduced from the declared
+    # Commands classes and the potential "menu" attribute attached to
+    # each individual command.
+    # The function menu_map_build() traverses all Commands classes,
+    # and creates a tree structure (stored in nested dictionaries).
+    # It is called once at application startup.
+    # The function draw_menu_map() draws the menu hierarchy, and
+    # initializes a command when it is selected.
+    
     """ Inserts an entry in a menumap """
     def menu_map_insert(self, menu_dict, menu_name, mslot):
         if menu_name == '':
             menu_dict[mslot.name] = mslot
         else:
-            k = menu_name.split('/')[0]
+            # get leading path component
+            k = menu_name[0:(menu_name+'/').find('/')]
             if k not in menu_dict:
                 menu_dict[k] = dict()
             menu_name = menu_name.removeprefix(k)
@@ -658,7 +670,7 @@ class GraphiteApp:
             )
         if structure != None:
             self.structure_map[o.name] = structure
-            for attr in o.list_attributes('vertices','double','1').split(';'):
+            for attr in o.list_attributes('vertices','double',1).split(';'):
                 if attr != '':
                     attrarray = np.asarray(E.find_attribute(attr))
                     structure.add_scalar_quantity(
@@ -719,7 +731,7 @@ gom.bind_meta_type(menum)
 # displays it in Polyscope
 def extract_component(attr_name, component, interface, method):
     grob = interface.grob
-    component = int(component) # all args are passed as strings
+    component = int(component) # all args to custom commands are passed as strings
     attr_array = np.asarray(
         grob.I.Editor.find_attribute('vertices.'+attr_name)
     )
@@ -763,10 +775,12 @@ mslot = mclass.add_slot('extract_component',extract_component)
 mslot.create_custom_attribute(
     'help','sends component of a vector attribute to Polyscope'
 )
-mslot.create_custom_attribute('keep_structures','true')
+# special flag, needed to avoid destroying the PolyScope structure
+# that we just created, see GraphiteApp.handle_queued_command()
+mslot.create_custom_attribute('keep_structures','true') 
 mslot.create_custom_attribute('menu','/Attributes/Polyscope')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
-mslot.add_arg('component', gom.meta_types.int, '0')
+mslot.add_arg('component', gom.meta_types.int, 0)
 
 mslot = mclass.add_slot('flip',flip)
 mslot.create_custom_attribute('help','flips axes of an object')
