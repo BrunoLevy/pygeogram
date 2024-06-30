@@ -2,6 +2,7 @@ import polyscope as ps
 import numpy as np
 import gompy
 import math,sys,time
+import typing
 
 global graphite
 
@@ -244,6 +245,13 @@ class GraphiteApp:
 
                 if ps.imgui.MenuItem('save object'):
                     self.set_command(getattr(self.scene_graph.objects,objname).save)
+
+                if ps.imgui.MenuItem('commit transform'):
+                    self.commit_transform(getattr(self.scene_graph.objects,objname))
+                if ps.imgui.IsItemHovered():
+                    ps.imgui.SetTooltip(
+                        'transforms vertices according to Polyscope transform guizmo'
+                    )
                     
                 ps.imgui.Separator() 
                 self.draw_menumap(
@@ -587,7 +595,10 @@ class GraphiteApp:
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
-        val = int(val)
+        if val == '':
+            val = 0
+        else:
+            val = int(val)
         _,val = ps.imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
@@ -598,7 +609,10 @@ class GraphiteApp:
     def unsigned_int_handler(self, property_name, mtype, tooltip):
         """ Handles the GUI for an unsigned integer parameter """
         val = self.args[property_name]
-        val = int(val)
+        if val == '':
+            val = 0
+        else:
+            val = int(val)
         if val < 0:
             val = 0
         _,val = ps.imgui.InputInt(
@@ -659,6 +673,25 @@ class GraphiteApp:
         if tooltip != None and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
 
+    # ===== Python - GOM interop ===============================
+
+    def register_slot(self, mclass, function):
+        python2gom = {
+            str:   gom.meta_types.std.string,
+            int:   gom.meta_types.int,
+            float: gom.meta_types.float,
+            bool:  gom.meta_types.bool
+        }
+        mslot = mclass.add_slot(function.__name__,function)
+        if function.__doc__ != None:
+            mslot.set_custom_attribute('help',function.__doc__)
+        for argname, argtype in typing.get_type_hints(function).items():
+            if argtype in python2gom:
+                argtype = python2gom[argtype]
+            if argname != 'interface' and argname != 'method' and argname != 'return':
+                mslot.add_arg(argname, argtype)
+        return mslot
+    
     # ===== Graphite - Polyscope interop =======================
 
     def register_graphite_object(self,objname):
@@ -760,11 +793,14 @@ class GraphiteApp:
 graphite = GraphiteApp()
 
 #=====================================================
+
+# Extend Graphite in Python !
 # Add custom commands to Graphite Object Model, so that
 # they appear in the menus, exactly like native Graphite
 # commands written in C++
 
-menum = gom.meta_types.OGF.MetaEnum.create('FlipAxis')
+# Declare a new enum type
+menum = gom.meta_types.OGF.MetaEnum.create('OGF::FlipAxis')
 menum.add_value('FLIP_X',0)
 menum.add_value('FLIP_Y',1)
 menum.add_value('FLIP_Z',2)
@@ -774,9 +810,19 @@ menum.add_value('ROT_Z',5)
 menum.add_value('PERM_XYZ',6)
 gom.bind_meta_type(menum)
 
-# extracts a component from a vector attribute and
-# displays it in Polyscope
-def extract_component(attr_name, component, interface, method):
+# Python functions declared to Graphite need type hints,
+# so that the GUI can be automatically generated.
+# There are always two additional arguments in the end:
+#   interface: the target of the function call
+#   method: a string with the name of the method called
+def extract_component(
+        attr_name : str,
+        component : int,
+        interface : gom.meta_types.OGF.Interface,
+        method    : str
+):
+    # docstring is used to generate the tooltip
+    """sends component of a vector attribute to Polyscope"""
     grob = interface.grob
     component = int(component) # all args to custom commands are passed as strings
     attr_array = np.asarray(
@@ -789,7 +835,14 @@ def extract_component(attr_name, component, interface, method):
 
 # flips axes of a mesh
 # note the in-place modification of object's coordinates
-def flip_or_rotate(axis, center, interface, method):
+def flip_or_rotate(
+        axis      : gom.meta_types.OGF.FlipAxis,
+        center    : bool,
+        interface : gom.meta_types.OGF.Interface,
+        method    : str
+):
+    """flips axes of an object or rotate around an axis"""
+    
     center = (center == 'true') # all args are strings
     grob = interface.grob
     
@@ -828,23 +881,16 @@ mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
     'OGF::MeshGrobPolyScopeCommands'
 )
 mclass.add_constructor()
-mslot = mclass.add_slot('extract_component',extract_component)
-mslot.create_custom_attribute(
-    'help','sends component of a vector attribute to Polyscope'
-)
+mslot = graphite.register_slot(mclass,extract_component)
 # special flag, needed to avoid destroying the PolyScope structure
 # that we just created, see GraphiteApp.handle_queued_command()
 mslot.create_custom_attribute('keep_structures','true') 
 mslot.create_custom_attribute('menu','/Attributes/Polyscope')
-mslot.add_arg('attr_name', gom.meta_types.std.string)
-mslot.add_arg('component', gom.meta_types.int, 0)
 
-mslot = mclass.add_slot('flip_or_rotate',flip_or_rotate)
-mslot.create_custom_attribute('help','flips axes of an object')
+mslot = graphite.register_slot(mclass,flip_or_rotate)
 mslot.create_custom_attribute('menu','/Mesh')
-mslot.add_arg('axis', gom.meta_types.FlipAxis, 'X')
-mslot.add_arg('center', gom.meta_types.bool, 'true')
 
+# Add our new class to the list of interfaces attached to MeshGrob
 graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
