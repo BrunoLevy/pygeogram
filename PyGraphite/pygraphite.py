@@ -252,8 +252,8 @@ class GraphiteApp:
                 ps.imgui.EndPopup()	      
         ps.imgui.EndListBox()
 
-    """ Draws the GUI for the current Graphite command """
     def draw_command(self):
+        """ Draws the GUI for the current Graphite command """
         if self.request != None:
             grob = self.get_grob(self.request)
             if grob.meta_class.name == 'OGF::SceneGraph':
@@ -390,8 +390,8 @@ class GraphiteApp:
                 
     #===== Commands management ==============================================
 
-    """ Sets current Graphite command, edited in the GUI """
     def set_command(self, request):
+        """ Sets current Graphite command, edited in the GUI """
         self.request = request
         self.args = {}
         mmethod = self.request.method()
@@ -405,13 +405,13 @@ class GraphiteApp:
                 val = mmethod.ith_arg_default_value_as_string(i)
             self.args[mmethod.ith_arg_name(i)] = val
 
-    """ Resets current Graphite command """
     def reset_command(self):
+        """ Resets current Graphite command """
         self.request = None
         self.args = None
 
-    """ Invokes current Graphite command with the args entered in the GUI """
     def invoke_command(self):
+        """ Invokes current Graphite command with the args entered in the GUI """
         self.request(**self.args) #**: expand dict as keywords func call
 
     #===== MenuMap ===========================================================
@@ -425,8 +425,8 @@ class GraphiteApp:
     # The function draw_menu_map() draws the menu hierarchy, and
     # initializes a command when it is selected.
     
-    """ Inserts an entry in a menumap """
     def menu_map_insert(self, menu_dict, menu_name, mslot):
+        """ Inserts an entry in a menumap """
         if menu_name == '':
             menu_dict[mslot.name] = mslot
         else:
@@ -438,8 +438,8 @@ class GraphiteApp:
             menu_name = menu_name.removeprefix('/')
             self.menu_map_insert(menu_dict[k], menu_name, mslot)
 
-    """ Builds a menumap for a grob meta class """
     def menu_map_build(self,grob_meta_class):
+        """ Builds a menumap for a grob meta class """
         result = dict()
         grob_class_name = grob_meta_class.name
         commands_str = gom.get_environment_value(grob_class_name + '_commands')
@@ -483,8 +483,8 @@ class GraphiteApp:
                         self.menu_map_insert(result, menu_name, mslot)   
         return result
     
-    """ Draws and handles the menus stored in a menumap """
     def draw_menumap(self,menudict,o):
+        """ Draws and handles the menus stored in a menumap """
         for k,v in menudict.items():
             if isinstance(v,dict):
                 if ps.imgui.BeginMenu(k.replace('_',' ')):
@@ -503,8 +503,8 @@ class GraphiteApp:
 
     #===== Other menus from metainformation =================================
                     
-    """ Draws menus for all commands associated with a Graphite object """
     def draw_object_commands_menus(self,o):
+        """ Draws menus for all commands associated with a Graphite object """
         # get all interfaces of the object
         for interface_name in dir(o.I):
             interface = getattr(o.I,interface_name)
@@ -514,16 +514,16 @@ class GraphiteApp:
                     self.draw_interface_menuitems(interface)
                     ps.imgui.EndMenu()
 
-    """ Draw menu items for all slots of an interface """
     def draw_interface_menuitems(self,interface):
+        """ Draw menu items for all slots of an interface """
         mclass = interface.meta_class
         for i in range(mclass.nb_slots()):
             mslot = mclass.ith_slot(i)
             if not hasattr(gom.meta_types.OGF.Interface,mslot.name):
                 self.draw_request_menuitem(getattr(interface,mslot.name))
 
-    """ Draw a menu item for a given request (that is, a closure) """
     def draw_request_menuitem(self, request):
+        """ Draw a menu item for a given request (that is, a closure) """
         if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
             self.set_command(request)
         if (
@@ -541,8 +541,8 @@ class GraphiteApp:
            return False
         return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
         
-    """ Handles the GUI for a parameter """
     def arg_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for a parameter """
         if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
             self.enum_handler(property_name, mtype, tooltip)
             return
@@ -552,8 +552,8 @@ class GraphiteApp:
             return
         self.string_handler(property_name, mtype, tooltip)
         
-    """ Handles the GUI for a string parameter """
     def string_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for a string parameter """
         self.label(property_name, tooltip)        
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
@@ -564,8 +564,8 @@ class GraphiteApp:
         ps.imgui.PopItemWidth()
         self.args[property_name] = val
 
-    """ Handles the GUI for a boolean parameter """
     def bool_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for a boolean parameter """
         ps.imgui.PushItemWidth(-1)
         val = self.args[property_name]
         val = (val == 'true')
@@ -581,8 +581,8 @@ class GraphiteApp:
             val = 'false'
         self.args[property_name] = val
 
-    """ Handles the GUI for an integer parameter """
     def int_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for an integer parameter """
         self.label(property_name, tooltip)
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
@@ -595,11 +595,8 @@ class GraphiteApp:
         val = str(val)
         self.args[property_name] = val
 
-    """ Handles the GUI for an unsigned integer parameter """
     def unsigned_int_handler(self, property_name, mtype, tooltip):
-        self.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
+        """ Handles the GUI for an unsigned integer parameter """
         val = self.args[property_name]
         val = int(val)
         if val < 0:
@@ -611,18 +608,18 @@ class GraphiteApp:
         val = str(val)
         self.args[property_name] = val
 
-    """ Handles the GUI for a MeshGrobName parameter """
     def OGF__MeshGrobName_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for a MeshGrobName parameter """
         values = gom.get_environment_value('OGF::MeshGrob_instances')
         self.combo_box(property_name, values, tooltip)
 
-    """ Handles the GUI for a GrobClassName parameter """
     def OGF__GrobClassName_handler(self, property_name, mtype, tooltip):
+        """ Handles the GUI for a GrobClassName parameter """
         values = gom.get_environment_value('grob_types')
         self.combo_box(property_name, values, tooltip)
 
-    """ Handles the GUI for an enum parameter """
     def enum_handler(self, property_name, menum, tooltip):
+        """ Handles the GUI for an enum parameter """
         values = ''
         for i in range(menum.nb_values()):
             if i != 0:
@@ -630,9 +627,9 @@ class GraphiteApp:
             values = values + menum.ith_name(i)
         self.combo_box(property_name, values, tooltip)
 
-    """ Handles the GUI with a combobox, 
-        given the possible values in a ';'-separated string """
     def combo_box(self, property_name, values, tooltip):
+        """ Handles the GUI with a combobox, 
+            given the possible values in a ';'-separated string """
         self.label(property_name, tooltip)
         if values=='':
             return
@@ -655,9 +652,9 @@ class GraphiteApp:
         ps.imgui.PopItemWidth()
         self.args[property_name] = values[new_index]
 
-    """ Draws the label of a parameter, 
-        and a tooltip if help is available in meta info """
     def label(self, property_name, tooltip):
+        """ Draws the label of a parameter, 
+            and a tooltip if help is available in meta info """
         ps.imgui.Text(property_name.replace('_',' '))
         if tooltip != None and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
@@ -720,7 +717,7 @@ class GraphiteApp:
         if hasattr(structure,'update_point_positions'):
             structure.update_point_positions(object_vertices)            
 
-# ---- Some low-level manipulations of object points using NumPy primitives
+    # ===== Some low-level manip based on numpy =======================
             
     def get_object_bbox(self, o):
         vertices = np.asarray(o.I.Editor.get_points())
@@ -738,8 +735,8 @@ class GraphiteApp:
         vertices[:,1] = vertices[:,1] + T[1] 
         vertices[:,2] = vertices[:,2] + T[2] 
 
-    """ Apply a 4x4 homogeneous coord transform to object's vertices """
     def transform_object(self, o, xform):
+        """ Applies a 4x4 homogeneous coord transform to object's vertices """
         # if xform is identity, nothing to do
         if np.allclose(xform,np.eye(4)):
             return
