@@ -17,13 +17,13 @@ class GraphiteApp:
     
     def out_CB(self,str):
         self.print(str)
-        if self.running:
-            ps.frame_tick()
+        while self.running and self.message_changed_frames > 0:
+            ps.frame_tick() 
 
     def err_CB(self,str):
         self.show_terminal=True # make terminal appear if it was hidden
         self.print(str)
-        if self.running:
+        while self.running and self.message_changed_frames > 0:
             ps.frame_tick()
             
     def progress_begin_CB(self,taskname):
@@ -130,17 +130,18 @@ class GraphiteApp:
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([340,10])
         ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
-        ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
-        self.draw_menubar()
-        self.draw_scenegraph_GUI()
-        self.draw_command()
+        unfolded,_ = ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
+        if unfolded:
+            self.draw_menubar()
+            self.draw_scenegraph_GUI()
+            self.draw_command()
         ps.imgui.End()
         self.draw_terminal_window()
         self.draw_progressbar_window()
 
     def print(self, str):
         self.message = self.message + str
-        self.message_changed_frames = 2 # needs two frames forSetScrollY() to do the job
+        self.message_changed_frames = 3 # needs two frames forSetScrollY() to do the job
         
     #====== Main elements of GUI ==========================================
 
@@ -149,9 +150,9 @@ class GraphiteApp:
             height = 160
             if self.progress_task == None:
                 height = height + 40
-            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-220])
+            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-210])
             ps.imgui.SetNextWindowSize([600,height])
-            ps.imgui.Begin('Terminal',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
+            _,self.show_terminal = ps.imgui.Begin('Terminal',self.show_terminal)
             ps.imgui.Text(self.message)
             if self.message_changed_frames > 0:
                 ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
@@ -281,7 +282,7 @@ class GraphiteApp:
                         has_advanced_args = True
                     else:
                         nb_standard_args = nb_standard_args + 1
-                height = nb_standard_args * 32
+                height = nb_standard_args * 35
                 if has_advanced_args:
                     height = height + 20
                 ps.imgui.BeginListBox('##Command',[-1,height])
@@ -331,7 +332,7 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
-    # this function is called right after PolyScope has finished 
+    # this function is called right after PolyScope has finished rendering
                 
     def handle_queued_command(self):
         if self.queued_execute_command:
@@ -394,6 +395,8 @@ class GraphiteApp:
         self.request = request
         self.args = {}
         mmethod = self.request.method()
+        # This additional arg makes the command display more information
+        # in the terminal
         if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
             self.args['invoked_from_gui'] = 'true'
         for i in range(mmethod.nb_args()):
@@ -470,6 +473,8 @@ class GraphiteApp:
                              menu_name = 'menubar/'+menu_name
                        else:
                           menu_name = menu_name + '/' + submenu_name
+                    # Skip Object and Node functions, we don't want them to
+                    # appear in the GUI
                     if (
                         gom.meta_types.OGF.Object.find_member(mslot.name)==None
                             and
@@ -705,6 +710,39 @@ class GraphiteApp:
         # if xform is identity, nothing to do
         if np.allclose(xform,np.eye(4)):
             return
+        self.transform_object(o,xform)
+        structure.reset_transform() # reset polyscope xform
+        object_vertices = np.asarray(o.I.Editor.get_points())
+        # tell polyscope that vertices have changed
+        if hasattr(structure,'update_vertex_positions'):
+            structure.update_vertex_positions(object_vertices)
+        # for PolyScope pointsets it is a different function
+        if hasattr(structure,'update_point_positions'):
+            structure.update_point_positions(object_vertices)            
+
+# ---- Some low-level manipulations of object points using NumPy primitives
+            
+    def get_object_bbox(self, o):
+        vertices = np.asarray(o.I.Editor.get_points())
+        pmin=np.array([np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])])
+        pmax=np.array([np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])])
+        return pmin, pmax
+
+    def get_object_center(self, o):
+        pmin,pmax = self.get_object_bbox(o)
+        return 0.5*(pmin+pmax)
+                
+    def translate_object(self, o, T):
+        vertices = np.asarray(o.I.Editor.get_points())
+        vertices[:,0] = vertices[:,0] + T[0] 
+        vertices[:,1] = vertices[:,1] + T[1] 
+        vertices[:,2] = vertices[:,2] + T[2] 
+
+    """ Apply a 4x4 homogeneous coord transform to object's vertices """
+    def transform_object(self, o, xform):
+        # if xform is identity, nothing to do
+        if np.allclose(xform,np.eye(4)):
+            return
         object_vertices = np.asarray(o.I.Editor.get_points())
         vertices = np.c_[  # add a column of 1
             object_vertices, np.ones(object_vertices.shape[0])
@@ -715,17 +753,9 @@ class GraphiteApp:
         weights  = weights[:,np.newaxis]          # make it a Nx1 matrix
         vertices = vertices[:,:-1]                # get the x,y,z coords
         vertices = vertices/weights               # divide the x,y,z coords by w
-        # Could be written also in 1 line only, as:
+        # Could be written also in 1 line only (but less legible I think):
         #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
-        
         np.copyto(object_vertices,vertices)       # inject into graphite object
-        structure.reset_transform()               # reset polyscope xform
-        # tell polyscope that vertices have changed
-        if hasattr(structure,'update_vertex_positions'):
-            structure.update_vertex_positions(object_vertices)
-        if hasattr(structure,'update_point_positions'):
-            structure.update_point_positions(object_vertices)            
-
         
 #=====================================================
 # Graphite application
@@ -762,8 +792,14 @@ def extract_component(attr_name, component, interface, method):
 
 # flips axes of a mesh
 # note the in-place modification of object's coordinates
-def flip(axis, interface, method):
+def flip_or_rotate(axis, center, interface, method):
+    center = (center == 'true') # all args are strings
     grob = interface.grob
+    
+    if center:
+        C = graphite.get_object_center(grob)
+        graphite.translate_object(grob, -C)
+        
     # points array can be modified in-place !
     pts_array = np.asarray(grob.I.Editor.get_points())
     if   axis == 'FLIP_X':
@@ -783,6 +819,10 @@ def flip(axis, interface, method):
         pts_array[:,0] = -pts_array[:,0]        
     elif axis == 'PERM_XYZ':
         pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
+
+    if center:
+        graphite.translate_object(grob, C)
+        
     structure = graphite.structure_map[grob.name]
     structure.update_vertex_positions(pts_array) 
 
@@ -802,14 +842,17 @@ mslot.create_custom_attribute('menu','/Attributes/Polyscope')
 mslot.add_arg('attr_name', gom.meta_types.std.string)
 mslot.add_arg('component', gom.meta_types.int, 0)
 
-mslot = mclass.add_slot('flip',flip)
+mslot = mclass.add_slot('flip_or_rotate',flip_or_rotate)
 mslot.create_custom_attribute('help','flips axes of an object')
 mslot.create_custom_attribute('menu','/Mesh')
 mslot.add_arg('axis', gom.meta_types.FlipAxis, 'X')
+mslot.add_arg('center', gom.meta_types.bool, 'true')
 
 graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
 
 #=====================================================
 # Initialize Polyscope and enter app main loop
 ps.init()
+ps.set_up_dir('z_up')
+ps.set_front_dir('neg_y_front')
 graphite.run(sys.argv)
