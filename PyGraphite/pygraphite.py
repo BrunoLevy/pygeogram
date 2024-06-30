@@ -147,7 +147,7 @@ class GraphiteApp:
     #====== Main elements of GUI ==========================================
 
     def draw_terminal_window(self):
-        if self.show_terminal: # TODO: find a way of making 'x' close the wndow
+        if self.show_terminal: 
             height = 160
             if self.progress_task == None:
                 height = height + 40
@@ -888,6 +888,7 @@ mslot.create_custom_attribute('keep_structures','true')
 mslot.create_custom_attribute('menu','/Attributes/Polyscope')
 
 mslot = graphite.register_slot(mclass,flip_or_rotate)
+mslot.set_arg_default_value('center','true') # only way to set default value
 mslot.create_custom_attribute('menu','/Mesh')
 
 # Add our new class to the list of interfaces attached to MeshGrob
