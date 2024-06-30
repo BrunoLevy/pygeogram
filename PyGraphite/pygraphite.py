@@ -3,9 +3,10 @@
 #  - Maybe the same "projection cube" as in Graphite to choose view
 #  - all values as strings in GUI functions, it is not clean
 #  - voxel grids and images (one MenuMap per grob type)
-#  - multiple PolyScope objects for each Graphite object (points, borders, facets...)
+#  - multiple PolyScope objects for each Graphite object (points, borders,...)
 #  - do not triangulate meshes with polygonal facets
 #  - a basic file browser
+#  - pulldown to change target object in a command
 
 import polyscope as ps
 import numpy as np
@@ -23,7 +24,8 @@ class GraphiteApp:
     # Callback for printing, redirected to terminal and for progress,
     # redirecting to progress bar
     # Since commands are queued and called outside PolyScope rendering function,
-    # they can draw an additional frame in need be (by calling PolyScope.frame_tick)
+    # they can draw an additional frame in need be
+    # (by calling PolyScope.frame_tick)
     
     def out_CB(self,str):
         self.print(str)
@@ -60,13 +62,14 @@ class GraphiteApp:
         self.menu_map = {}            # dictionary tree that represents menus
         self.reset_command()
         self.queued_execute_command = False # command execution is queued, for 
-        self.queued_close_command   = False #   making it happen out off polyscope CB
+        self.queued_close_command   = False # making it happen out off ps CB
         
         self.structure_map = {} # graphite object name -> polyscope structure
         self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
         
-        # create a Graphite ApplicationBase. It has the printing and progress callbacks,
-        # that are redirected here to some functions (ending with _CB).
+        # create a Graphite ApplicationBase. It has the printing and
+        # progress callbacks, that are redirected here to some functions
+        # (ending with _CB).
         application = gom.meta_types.OGF.ApplicationBase.create()
         self.scene_graph.application = application
 
@@ -99,7 +102,7 @@ class GraphiteApp:
 
             
         self.register_graphite_objects()
-        ps.set_open_imgui_window_for_user_callback(False) # we draw our own window
+        ps.set_open_imgui_window_for_user_callback(False) # we draw our own win
         ps.set_user_callback(self.draw_GUI)
         self.running = True
         quiet_frames = 0
@@ -107,8 +110,8 @@ class GraphiteApp:
         while self.running:
             ps.frame_tick()
             
-            # Handle command out of frame tick so that CBs can redraw GUI by calling
-            # frame tick again.
+            # Handle command out of frame tick so that CBs
+            # can redraw GUI by calling frame tick again.
             self.handle_queued_command() 
             
             # Mechanism to make it sleep a little bit
@@ -128,7 +131,8 @@ class GraphiteApp:
             else:
                 quiet_frames = quiet_frames + 1
             if quiet_frames > 2200:
-                time.sleep(0.5)  # gros dodo: 1/2 second (after 2000 + 200*1/20th second)
+                time.sleep(0.5)  # gros dodo: 1/2 second
+                                 # (after 2000 + 200*1/20th second)
             elif quiet_frames > 2000:
                 time.sleep(0.05) # petit dodo: 1/20th second
             else:
@@ -140,7 +144,9 @@ class GraphiteApp:
     def draw_GUI(self):
         ps.imgui.SetNextWindowPos([340,10])
         ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
-        unfolded,_ = ps.imgui.Begin('Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar)
+        unfolded,_ = ps.imgui.Begin(
+            'Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar
+        )
         if unfolded:
             self.draw_menubar()
             self.draw_scenegraph_GUI()
@@ -151,7 +157,8 @@ class GraphiteApp:
 
     def print(self, str):
         self.message = self.message + str
-        self.message_changed_frames = 3 # needs two frames forSetScrollY() to do the job
+        self.message_changed_frames = 3 # needs three frames for SetScrollY()
+                                        # to do the job
         
     #====== Main elements of GUI ==========================================
 
@@ -253,13 +260,17 @@ class GraphiteApp:
                     )
 
                 if ps.imgui.MenuItem('save object'):
-                    self.set_command(getattr(self.scene_graph.objects,objname).save)
+                    self.set_command(
+                        getattr(self.scene_graph.objects,objname).save
+                    )
 
                 if ps.imgui.MenuItem('commit transform'):
-                    self.commit_transform(getattr(self.scene_graph.objects,objname))
+                    self.commit_transform(
+                        getattr(self.scene_graph.objects,objname)
+                    )
                 if ps.imgui.IsItemHovered():
                     ps.imgui.SetTooltip(
-                        'transforms vertices according to Polyscope transform guizmo'
+                    'transforms vertices according to Polyscope transform guizmo'
                     )
                     
                 ps.imgui.Separator() 
@@ -396,8 +407,9 @@ class GraphiteApp:
             self.reset_command()
             self.queued_close_command = False
                 
-    # the closure passed to set_command() may be in the form grob.interface.method or
-    # simply grob.method. This function gets the grob in both cases.
+    # the closure passed to set_command() may be in the
+    # form grob.interface.method or simply grob.method.
+    # This function gets the grob in both cases.
     def get_grob(self,request):
         object = request.object()
         if(hasattr(object,'grob')):
@@ -684,7 +696,7 @@ class GraphiteApp:
 
     # ===== Python - GOM interop ===============================
 
-    def register_slot(self, mclass, function):
+    def register_command(self, mclass, function):
         # small table to translate standard Python types into
         # GOM metatypes
         python2gom = {
@@ -699,9 +711,28 @@ class GraphiteApp:
         for argname, argtype in typing.get_type_hints(function).items():
             if argtype in python2gom:
                 argtype = python2gom[argtype]
-            if argname != 'interface' and argname != 'method' and argname != 'return':
+            if (
+                    argname != 'interface' and
+                    argname != 'method'   and
+                    argname != 'return'
+            ):
                 mslot.add_arg(argname, argtype)
         return mslot
+
+    def register_commands(self, grobclass, methodsclass):
+        baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
+        mclass = baseclass.create_subclass(
+            'OGF::' + methodsclass.__name__
+        )
+        mclass.add_constructor()
+        for method_name in dir(methodsclass):
+            if (
+                    not method_name.startswith('__') or
+                    not method_name.endswith('__')
+            ):
+                self.register_command(mclass, getattr(methodsclass,method_name))
+        self.scene_graph.register_grob_commands(grobclass,mclass)
+        return mclass
     
     # ===== Graphite - Polyscope interop =======================
 
@@ -765,8 +796,12 @@ class GraphiteApp:
             
     def get_object_bbox(self, o):
         vertices = np.asarray(o.I.Editor.get_points())
-        pmin=np.array([np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])])
-        pmax=np.array([np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])])
+        pmin=np.array(
+            [np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])]
+        )
+        pmax=np.array(
+            [np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])]
+        )
         return pmin, pmax
 
     def get_object_center(self, o):
@@ -821,89 +856,89 @@ menum.add_value('ROT_Z',5)
 menum.add_value('PERM_XYZ',6)
 gom.bind_meta_type(menum)
 
-# Python functions declared to Graphite need type hints,
-# so that the GUI can be automatically generated.
-# There are always two additional arguments in the end:
-#   interface: the target of the function call
-#   method: a string with the name of the method called
-def extract_component(
-        attr_name : str,
-        component : int,
-        interface : gom.meta_types.OGF.Interface,
-        method    : str
-):
-    # docstring is used to generate the tooltip
-    """sends component of a vector attribute to Polyscope"""
-    grob = interface.grob
-    component = int(component) # all args to custom commands are passed as strings
-    attr_array = np.asarray(
-        grob.I.Editor.find_attribute('vertices.'+attr_name)
-    )
-    attr_array = attr_array[:,component]
-    graphite.structure_map[grob.name].add_scalar_quantity(
-        attr_name+'['+str(component)+']', attr_array
-    )
-
-# flips axes of a mesh
-# note the in-place modification of object's coordinates
-def flip_or_rotate(
-        axis      : gom.meta_types.OGF.FlipAxis,
-        center    : bool,
-        interface : gom.meta_types.OGF.Interface,
-        method    : str
-):
-    """flips axes of an object or rotate around an axis"""
+# Declare a new Commands class for MeshGrob
+class MeshGrobPolyScopeCommands:
     
-    center = (center == 'true') # all args are strings
-    grob = interface.grob
+    # Python functions declared to Graphite need type hints,
+    # so that the GUI can be automatically generated.
+    # There are always two additional arguments that appear first:
+    #   interface: the target of the function call
+    #   method: a string with the name of the method called. It can be used
+    #   to dispatch several slots to the same function
+    def extract_component(
+            interface : gom.meta_types.OGF.Interface,
+            method    : str,
+            attr_name : str,
+            component : int
+    ):
+        # docstring is used to generate the tooltip
+        """sends component of a vector attribute to Polyscope"""
+        grob = interface.grob
+        component = int(component) # all args to custom cmds are passed as str
+        attr_array = np.asarray(
+            grob.I.Editor.find_attribute('vertices.'+attr_name)
+        )
+        attr_array = attr_array[:,component]
+        graphite.structure_map[grob.name].add_scalar_quantity(
+            attr_name+'['+str(component)+']', attr_array
+        )
+
+    # note the in-place modification of object's coordinates
+    def flip_or_rotate(
+            interface : gom.meta_types.OGF.Interface,
+            method    : str,
+            axis      : gom.meta_types.OGF.FlipAxis,
+            center    : bool
+    ):
+        """flips axes of an object or rotate around an axis"""
     
-    if center:
-        C = graphite.get_object_center(grob)
-        graphite.translate_object(grob, -C)
+        center = (center == 'true') # all args are strings
+        grob = interface.grob
+    
+        if center:
+            C = graphite.get_object_center(grob)
+            graphite.translate_object(grob, -C)
+                
+        # points array can be modified in-place !
+        pts_array = np.asarray(grob.I.Editor.get_points())
+        if   axis == 'FLIP_X':
+            pts_array[:,0] = -pts_array[:,0]
+        elif axis == 'FLIP_Y':
+            pts_array[:,1] = -pts_array[:,1]
+        elif axis == 'FLIP_Z':
+            pts_array[:,2] = -pts_array[:,2]
+        elif axis == 'ROT_X':
+            pts_array[:,[0,1,2]] = pts_array[:,[0,2,1]]
+            pts_array[:,1] = -pts_array[:,1]
+        elif axis == 'ROT_Y':
+            pts_array[:,[0,1,2]] = pts_array[:,[2,1,0]]
+            pts_array[:,2] = -pts_array[:,2]
+        elif axis == 'ROT_Z':
+            pts_array[:,[0,1,2]] = pts_array[:,[1,0,2]]
+            pts_array[:,0] = -pts_array[:,0]        
+        elif axis == 'PERM_XYZ':
+            pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
+                    
+        if center:
+            graphite.translate_object(grob, C)
         
-    # points array can be modified in-place !
-    pts_array = np.asarray(grob.I.Editor.get_points())
-    if   axis == 'FLIP_X':
-        pts_array[:,0] = -pts_array[:,0]
-    elif axis == 'FLIP_Y':
-        pts_array[:,1] = -pts_array[:,1]
-    elif axis == 'FLIP_Z':
-        pts_array[:,2] = -pts_array[:,2]
-    elif axis == 'ROT_X':
-        pts_array[:,[0,1,2]] = pts_array[:,[0,2,1]]
-        pts_array[:,1] = -pts_array[:,1]
-    elif axis == 'ROT_Y':
-        pts_array[:,[0,1,2]] = pts_array[:,[2,1,0]]
-        pts_array[:,2] = -pts_array[:,2]
-    elif axis == 'ROT_Z':
-        pts_array[:,[0,1,2]] = pts_array[:,[1,0,2]]
-        pts_array[:,0] = -pts_array[:,0]        
-    elif axis == 'PERM_XYZ':
-        pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
+        structure = graphite.structure_map[grob.name]
+        if hasattr(structure, 'update_vertex_positions'):
+            structure.update_vertex_positions(pts_array)
+        if hasattr(structure, 'update_point_positions'):
+            structure.update_point_positions(pts_array)
 
-    if center:
-        graphite.translate_object(grob, C)
-        
-    structure = graphite.structure_map[grob.name]
-    structure.update_vertex_positions(pts_array) 
-
-        
-mclass = gom.meta_types.OGF.MeshGrobCommands.create_subclass(
-    'OGF::MeshGrobPolyScopeCommands'
+# register our new commands so that Graphite GUI sees them            
+mclass = graphite.register_commands(
+    gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
-mclass.add_constructor()
-mslot = graphite.register_slot(mclass,extract_component)
+
 # special flag, needed to avoid destroying the PolyScope structure
 # that we just created, see GraphiteApp.handle_queued_command()
-mslot.create_custom_attribute('keep_structures','true') 
-mslot.create_custom_attribute('menu','/Attributes/Polyscope')
-
-mslot = graphite.register_slot(mclass,flip_or_rotate)
-mslot.set_arg_default_value('center','true') # only way to set default value
-mslot.create_custom_attribute('menu','/Mesh')
-
-# Add our new class to the list of interfaces attached to MeshGrob
-graphite.scene_graph.register_grob_commands(gom.meta_types.OGF.MeshGrob,mclass)
+mclass.extract_component.create_custom_attribute('keep_structures','true')
+mclass.extract_component.create_custom_attribute('menu','/Attributes/Polyscope')
+mclass.flip_or_rotate.set_arg_default_value('center','true')
+mclass.flip_or_rotate.create_custom_attribute('menu','/Mesh')
 
 #=====================================================
 # Initialize Polyscope and enter app main loop
