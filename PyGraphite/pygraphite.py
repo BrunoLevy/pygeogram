@@ -1,3 +1,12 @@
+# TODO:
+#  - Guizmo appears at a weird location (not visible)
+#  - Maybe the same "projection cube" as in Graphite to choose view
+#  - all values as strings in GUI functions, it is not clean
+#  - voxel grids and images (one MenuMap per grob type)
+#  - multiple PolyScope objects for each Graphite object (points, borders, facets...)
+#  - do not triangulate meshes with polygonal facets
+#  - a basic file browser
+
 import polyscope as ps
 import numpy as np
 import gompy
@@ -340,7 +349,7 @@ class GraphiteApp:
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
 
-    # this function is called right after PolyScope has finished rendering
+    # This function is called right after PolyScope has finished rendering
                 
     def handle_queued_command(self):
         if self.queued_execute_command:
@@ -676,6 +685,8 @@ class GraphiteApp:
     # ===== Python - GOM interop ===============================
 
     def register_slot(self, mclass, function):
+        # small table to translate standard Python types into
+        # GOM metatypes
         python2gom = {
             str:   gom.meta_types.std.string,
             int:   gom.meta_types.int,
