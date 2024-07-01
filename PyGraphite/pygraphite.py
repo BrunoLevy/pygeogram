@@ -424,12 +424,17 @@ class GraphiteApp:
             val = ''
             if mmethod.ith_arg_has_default_value(i):
                 val = mmethod.ith_arg_default_value_as_string(i)
-            if mmethod.ith_arg_type(i).is_a(gom.meta_types.bool):
+            mtype = mmethod.ith_arg_type(i)
+            if mtype.is_a(gom.meta_types.bool):
                 if val == '':
                     val = False
                 else:
                     val = (val == 'true' or val == 'True')
-            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.int):
+            elif (
+                mtype.is_a(gom.meta_types.int) or
+                mtype.is_a(gom.meta_types.OGF.index_t) or
+                mtype.name == 'unsigned int'
+            ):
                 if val == '':
                     val = 0
                 else:
@@ -626,6 +631,9 @@ class GraphiteApp:
 
     def unsigned_int_handler(self, property_name, mtype, tooltip):
         """ Handles the GUI for an unsigned integer parameter """
+        self.label(property_name, tooltip)
+        ps.imgui.SameLine()
+        ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
         if val < 0:
             val = 0
