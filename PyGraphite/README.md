@@ -36,4 +36,6 @@ python3 graphite.py <optional files to load ....>
 How to use PyGraphite ?
 -----------------------
 
-See Graphite tutorial [here](https://github.com/BrunoLevy/GraphiteThree/wiki#manuals-and-tutorials) _note: these tutorials are for the regular version of Graphite, appearance and behavior are slightly different, for instance, one needs to right-click on the name of an object in the list to get the list of commands_
+See Graphite tutorial [here](https://github.com/BrunoLevy/GraphiteThree/wiki#manuals-and-tutorials)
+
+_note: these tutorials are for the regular version of Graphite, appearance and behavior are slightly different, for instance, one needs to right-click on the name of an object in the list to get the list of commands_
