@@ -990,5 +990,5 @@ mclass = graphite.register_commands(
 # Initialize Polyscope and enter app main loop
 ps.init()
 ps.set_up_dir('z_up')
-ps.set_front_dir('neg_y_front')
+ps.set_front_dir('y_front')
 graphite.run(sys.argv)
