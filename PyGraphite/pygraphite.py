@@ -6,8 +6,7 @@
 #  - do not triangulate meshes with polygonal facets
 #  - a basic file browser
 #  - pulldown to change target object in a command
-#  - python commands declared to Graphite: get menu from docstring
-#  - python commands declared to Graphite: can't we get default values from meta info ?
+#  - commands that take attributes, get list from current object, as in Graphite
 
 import polyscope as ps
 import numpy as np
@@ -751,7 +750,13 @@ class GraphiteApp:
                 kw,val = line.split(maxsplit=1)
                 kw = kw[1:]
                 if kw == 'param[in]':
-                    argname,argdoc = val.split(maxsplit=1)
+                    eqpos = val.find('=')
+                    if eqpos == -1:
+                        argname,argdoc = val.split(maxsplit=1)
+                    else:
+                        val = val.replace('=',' ')
+                        argname,argdef,argdoc = val.split(maxsplit=2)
+                        mslot.set_arg_default_value(argname, argdef)
                     mslot.set_arg_custom_attribute(argname, 'help', argdoc)
                 elif kw == 'brief':
                     mslot.set_custom_attribute('help',val)
@@ -886,22 +891,23 @@ class MeshGrobPolyScopeCommands:
     #   interface: the target of the function call
     #   method: a string with the name of the method called. It can be used
     #   to dispatch several slots to the same function
-    # Note that Python functions declared to Graphite do not take self as argument
-    #   (they are like C++ static class functions)
+    # Note that Python functions declared to Graphite do not take self as
+    #   argument (they are like C++ static class functions)
     def extract_component(
             interface : gom.meta_types.OGF.Interface,
             method    : str,
             attr_name : str,
             component : gom.meta_types.OGF.index_t
     ):
-        # docstring is used to generate the tooltip
+        # docstring is used to generate the tooltip, menu, and have additional
+        # information attached to the "custom attributes" of the MetaMethod.
         """
         @brief sends component of a vector attribute to Polyscope
         @param[in] attr_name name of the attribute
         @param[in] component index of the component to be extracted
         @menu /Attributes/Polyscope
+        @keep_structures True # see GraphiteApp.handle_queued_command()
         """
-        
         grob = interface.grob
         attr_array = np.asarray(
             grob.I.Editor.find_attribute('vertices.'+attr_name)
@@ -911,17 +917,19 @@ class MeshGrobPolyScopeCommands:
             attr_name+'['+str(component)+']', attr_array
         )
 
-    # note the in-place modification of object's coordinates
+    # Note the default value for the 'center' arg in the docstring
+    # (it would have been better to let one put it with type hints,
+    #  but I did not figure out a way of getting it from there)
     def flip_or_rotate(
             interface : gom.meta_types.OGF.Interface,
             method    : str,
-            axis      : gom.meta_types.OGF.FlipAxis, # the new enum type declared above
+            axis      : gom.meta_types.OGF.FlipAxis, # the new enum created above
             center    : bool
     ):
         """
         @brief flips axes of an object or rotate around an axis
         @param[in] axis one of FLIP_X,FLIP_Y,FLIP_Z,ROT_X,ROT_Y,ROT_Z,PERM_XYZ
-        @param[in] center if set, rotation and flipping are relative to object's center
+        @param[in] center = True if set, xform is relative to object's center
         @menu /Mesh
         """
     
@@ -964,13 +972,6 @@ class MeshGrobPolyScopeCommands:
 mclass = graphite.register_commands(
     gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
-
-# special flag, needed to avoid destroying the PolyScope structure
-# that we just created, see GraphiteApp.handle_queued_command()
-mclass.extract_component.create_custom_attribute('keep_structures',True)
-#mclass.extract_component.create_custom_attribute('menu','/Attributes/Polyscope')
-mclass.flip_or_rotate.set_arg_default_value('center',True)
-#mclass.flip_or_rotate.create_custom_attribute('menu','/Mesh')
 
 #=====================================================
 # Initialize Polyscope and enter app main loop
