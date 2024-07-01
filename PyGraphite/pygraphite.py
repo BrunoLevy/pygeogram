@@ -1,7 +1,6 @@
 # TODO:
 #  - Guizmo appears at a weird location (not visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
-#  - all values as strings in GUI functions, it is not clean
 #  - voxel grids and images (one MenuMap per grob type)
 #  - multiple PolyScope objects for each Graphite object (points, borders,...)
 #  - do not triangulate meshes with polygonal facets
@@ -425,13 +424,29 @@ class GraphiteApp:
         self.args = {}
         mmethod = self.request.method()
         # This additional arg makes the command display more information
-        # in the terminal
+        # in the terminal. It is not set for methods declared in Python
+        # that need to have the exact same number of args.
         if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
-            self.args['invoked_from_gui'] = 'true'
+            self.args['invoked_from_gui'] = True
         for i in range(mmethod.nb_args()):
             val = ''
             if mmethod.ith_arg_has_default_value(i):
                 val = mmethod.ith_arg_default_value_as_string(i)
+            if mmethod.ith_arg_type(i).is_a(gom.meta_types.bool):
+                if val == '':
+                    val = False
+                else:
+                    val = (val == 'true' or val == 'True')
+            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.int):
+                if val == '':
+                    val = 0
+                else:
+                    val = int(val)
+            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.float):
+                if val == '':
+                    val = 0.0
+                else:
+                    val = float(val)
             self.args[mmethod.ith_arg_name(i)] = val
 
     def reset_command(self):
@@ -597,17 +612,12 @@ class GraphiteApp:
         """ Handles the GUI for a boolean parameter """
         ps.imgui.PushItemWidth(-1)
         val = self.args[property_name]
-        val = (val == 'true')
         _,val = ps.imgui.Checkbox(
             property_name.replace('_',' '), val
         )
         if tooltip != None and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
         ps.imgui.PopItemWidth()
-        if val:
-            val = 'true'
-        else:
-            val = 'false'
         self.args[property_name] = val
 
     def int_handler(self, property_name, mtype, tooltip):
@@ -616,31 +626,21 @@ class GraphiteApp:
         ps.imgui.SameLine()
         ps.imgui.PushItemWidth(-20)
         val = self.args[property_name]
-        if val == '':
-            val = 0
-        else:
-            val = int(val)
         _,val = ps.imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
         ps.imgui.PopItemWidth()
-        val = str(val)
         self.args[property_name] = val
 
     def unsigned_int_handler(self, property_name, mtype, tooltip):
         """ Handles the GUI for an unsigned integer parameter """
         val = self.args[property_name]
-        if val == '':
-            val = 0
-        else:
-            val = int(val)
         if val < 0:
             val = 0
         _,val = ps.imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
         ps.imgui.PopItemWidth()
-        val = str(val)
         self.args[property_name] = val
 
     def OGF__MeshGrobName_handler(self, property_name, mtype, tooltip):
@@ -869,12 +869,11 @@ class MeshGrobPolyScopeCommands:
             interface : gom.meta_types.OGF.Interface,
             method    : str,
             attr_name : str,
-            component : int
+            component : gom.meta_types.OGF.index_t
     ):
         # docstring is used to generate the tooltip
         """sends component of a vector attribute to Polyscope"""
         grob = interface.grob
-        component = int(component) # all args to custom cmds are passed as str
         attr_array = np.asarray(
             grob.I.Editor.find_attribute('vertices.'+attr_name)
         )
@@ -892,7 +891,6 @@ class MeshGrobPolyScopeCommands:
     ):
         """flips axes of an object or rotate around an axis"""
     
-        center = (center == 'true') # all args are strings
         grob = interface.grob
     
         if center:
