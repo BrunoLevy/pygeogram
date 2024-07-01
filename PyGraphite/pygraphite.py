@@ -696,29 +696,15 @@ class GraphiteApp:
 
     # ===== Python - GOM interop ===============================
 
-    def register_command(self, mclass, function):
-        # small table to translate standard Python types into
-        # GOM metatypes
-        python2gom = {
-            str:   gom.meta_types.std.string,
-            int:   gom.meta_types.int,
-            float: gom.meta_types.float,
-            bool:  gom.meta_types.bool
-        }
-        mslot = mclass.add_slot(function.__name__,function)
-        if function.__doc__ != None:
-            mslot.set_custom_attribute('help',function.__doc__)
-        for argname, argtype in typing.get_type_hints(function).items():
-            if argtype in python2gom:
-                argtype = python2gom[argtype]
-            if (
-                    argname != 'interface' and
-                    argname != 'method'   and
-                    argname != 'return'
-            ):
-                mslot.add_arg(argname, argtype)
-        return mslot
-
+    def register_enum(self, name, values):
+        menum = gom.meta_types.OGF.MetaEnum.create(name)
+        index = 0
+        for value in values:
+            menum.add_value(value, index)
+            index = index + 1
+        gom.bind_meta_type(menum)
+        return menum
+    
     def register_commands(self, grobclass, methodsclass):
         baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
         mclass = baseclass.create_subclass(
@@ -730,18 +716,49 @@ class GraphiteApp:
                     not method_name.startswith('__') or
                     not method_name.endswith('__')
             ):
-                self.register_command(mclass, getattr(methodsclass,method_name))
+                pyfunc = getattr(methodsclass,method_name)
+                mslot = self.register_command(mclass, pyfunc)
         self.scene_graph.register_grob_commands(grobclass,mclass)
         return mclass
 
-    def register_enum(self, name, values):
-        menum = gom.meta_types.OGF.MetaEnum.create(name)
-        index = 0
-        for value in values:
-            menum.add_value(value, index)
-            index = index + 1
-        gom.bind_meta_type(menum)
-        return menum
+    def register_command(self, mclass, pyfunc):
+        # small table to translate standard Python types into
+        # GOM metatypes
+        python2gom = {
+            str:   gom.meta_types.std.string,
+            int:   gom.meta_types.int,
+            float: gom.meta_types.float,
+            bool:  gom.meta_types.bool
+        }
+        mslot = mclass.add_slot(pyfunc.__name__,pyfunc)
+        for argname, argtype in typing.get_type_hints(pyfunc).items():
+            if argtype in python2gom:
+                argtype = python2gom[argtype]
+            if (
+                    argname != 'interface' and
+                    argname != 'method'   and
+                    argname != 'return'
+            ):
+                mslot.add_arg(argname, argtype)
+        self.parse_doc(mslot,pyfunc)
+        return mslot
+    
+    def parse_doc(self, mslot, pyfunc):
+        if pyfunc.__doc__ == None:
+            return 
+        for line in pyfunc.__doc__.split('\n'):
+            try:
+                kw,val = line.split(maxsplit=1)
+                kw = kw[1:]
+                if kw == 'param[in]':
+                    argname,argdoc = val.split(maxsplit=1)
+                    mslot.set_arg_custom_attribute(argname, 'help', argdoc)
+                elif kw == 'brief':
+                    mslot.set_custom_attribute('help',val)
+                else:
+                    mslot.set_custom_attribute(kw, val)
+            except:
+                None
     
     # ===== Graphite - Polyscope interop =======================
 
@@ -878,7 +895,13 @@ class MeshGrobPolyScopeCommands:
             component : gom.meta_types.OGF.index_t
     ):
         # docstring is used to generate the tooltip
-        """sends component of a vector attribute to Polyscope"""
+        """
+        @brief sends component of a vector attribute to Polyscope
+        @param[in] attr_name name of the attribute
+        @param[in] component index of the component to be extracted
+        @menu /Attributes/Polyscope
+        """
+        
         grob = interface.grob
         attr_array = np.asarray(
             grob.I.Editor.find_attribute('vertices.'+attr_name)
@@ -895,7 +918,12 @@ class MeshGrobPolyScopeCommands:
             axis      : gom.meta_types.OGF.FlipAxis, # the new enum type declared above
             center    : bool
     ):
-        """flips axes of an object or rotate around an axis"""
+        """
+        @brief flips axes of an object or rotate around an axis
+        @param[in] axis one of FLIP_X,FLIP_Y,FLIP_Z,ROT_X,ROT_Y,ROT_Z,PERM_XYZ
+        @param[in] center if set, rotation and flipping are relative to object's center
+        @menu /Mesh
+        """
     
         grob = interface.grob
     
@@ -940,9 +968,9 @@ mclass = graphite.register_commands(
 # special flag, needed to avoid destroying the PolyScope structure
 # that we just created, see GraphiteApp.handle_queued_command()
 mclass.extract_component.create_custom_attribute('keep_structures',True)
-mclass.extract_component.create_custom_attribute('menu','/Attributes/Polyscope')
+#mclass.extract_component.create_custom_attribute('menu','/Attributes/Polyscope')
 mclass.flip_or_rotate.set_arg_default_value('center',True)
-mclass.flip_or_rotate.create_custom_attribute('menu','/Mesh')
+#mclass.flip_or_rotate.create_custom_attribute('menu','/Mesh')
 
 #=====================================================
 # Initialize Polyscope and enter app main loop
