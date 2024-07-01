@@ -6,7 +6,11 @@ This is work in progress, be patient, I first need to understand how wheels work
 
 If you need to use geogram in Python **now** (I don't know how much time it will take me to learn all these things), there is a possibility: you can use [gompy](https://github.com/BrunoLevy/GraphiteThree/wiki/python), that is, Graphite's object model projected into Python.
 
-For now this repository only contains notes and links to documents and projects (thank you Twitter friends).
+You may also be interesting in [pygraphite](https://github.com/BrunoLevy/pygeogram/tree/main/PyGraphite),
+a version of [Graphite](https://github.com/BrunoLevy/GraphiteThree) that runs
+in [PolyScope](https://polyscope.run/) using [PolyScope Python bindings](https://polyscope.run/py/)
+
+For now this repository mainly collects notes and links to documents and projects (thank you Twitter friends).
 
 # Links, resources
 - How to build wheels [here](https://gertjanvandenburg.com/blog/wheels/) 
