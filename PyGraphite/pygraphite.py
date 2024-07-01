@@ -164,9 +164,11 @@ class GraphiteApp:
 
     def draw_terminal_window(self):
         if self.show_terminal: 
-            height = 160
+            height = 150
             if self.progress_task == None:
-                height = height + 40
+                height = height + 50
+            else:
+                self.message_changed_frames = 3 # make tty scroll to end
             ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-210])
             ps.imgui.SetNextWindowSize([600,height])
             _,self.show_terminal = ps.imgui.Begin('Terminal',self.show_terminal)
@@ -178,8 +180,8 @@ class GraphiteApp:
 
     def draw_progressbar_window(self):
         if self.progress_task != None:
-            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-50])
-            ps.imgui.SetNextWindowSize([600,40])
+            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-55])
+            ps.imgui.SetNextWindowSize([600,45])
             ps.imgui.Begin('Progress',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
             if ps.imgui.Button('X'):
                 self.scene_graph.application.progress_cancel()
@@ -368,6 +370,11 @@ class GraphiteApp:
             mmethod = self.request.method()
             objects_before_command = dir(self.scene_graph.objects)
 
+            withattrs = hasattr(grob,'list_attributes')
+            oldattrs = {}
+            if withattrs:
+                oldattrs = grob.list_attributes('vertices','double',1).split(';')
+            
             # Commit all transforms (note: does not cost much when
             # transforms are identity)
             for objname in dir(self.scene_graph.objects):
@@ -382,13 +389,19 @@ class GraphiteApp:
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
+            newattr = None
+            if withattrs:
+                for a in grob.list_attributes('vertices','double',1).split(';'):
+                    if not a in oldattrs:
+                        newattr = a
+                
             # Unregister all objects that were previously there,
             # then register all objects
             if not mmethod.has_custom_attribute('keep_structures'):
                 for objname in objects_before_command:
                     self.unregister_graphite_object(objname)
                 for objname in dir(self.scene_graph.objects):
-                    structure = self.register_graphite_object(objname)
+                    structure = self.register_graphite_object(objname,newattr)
                         
             self.queued_execute_command = False
         if self.queued_close_command:
@@ -767,7 +780,7 @@ class GraphiteApp:
     
     # ===== Graphite - Polyscope interop =======================
 
-    def register_graphite_object(self,objname):
+    def register_graphite_object(self,objname,attribute_to_show=None):
         o = self.scene_graph.resolve(objname)
         E = o.I.Editor
         structure = None
@@ -791,7 +804,7 @@ class GraphiteApp:
                     attrarray = np.asarray(E.find_attribute(attr))
                     structure.add_scalar_quantity(
                         attr.removeprefix('vertices.'),
-                        attrarray
+                        attrarray, enabled=(attr==attribute_to_show)
                     )
         return structure
         
