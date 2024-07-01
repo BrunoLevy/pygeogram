@@ -6,6 +6,8 @@
 #  - do not triangulate meshes with polygonal facets
 #  - a basic file browser
 #  - pulldown to change target object in a command
+#  - python commands declared to Graphite: get menu from docstring
+#  - python commands declared to Graphite: can't we get default values from meta info ?
 
 import polyscope as ps
 import numpy as np
@@ -366,7 +368,6 @@ class GraphiteApp:
             grob = self.get_grob(self.request)
             mmethod = self.request.method()
             objects_before_command = dir(self.scene_graph.objects)
-            visible_objects_before_command = []
 
             # Commit all transforms (note: does not cost much when
             # transforms are identity)
@@ -374,15 +375,6 @@ class GraphiteApp:
                 obj = self.scene_graph.resolve(objname)
                 self.commit_transform(obj)
             
-            # Hide everything, so that we can work without smbdy
-            # looking over our shoulder
-            #if not mmethod.has_custom_attribute('keep_structures'):
-            #    for objname in dir(self.scene_graph.objects):
-            #        structure = self.structure_map[objname]
-            #        if structure.is_enabled():
-            #            visible_objects_before_command.append(objname)
-            #            structure.set_enabled(False)
-                        
             self.invoke_command()
 
             # Polygonal surfaces not supported for now, so we
@@ -391,15 +383,13 @@ class GraphiteApp:
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
-            # Unregister all objects that were previously there
-            # Register all objects, and restore saved visible flag
+            # Unregister all objects that were previously there,
+            # then register all objects
             if not mmethod.has_custom_attribute('keep_structures'):
                 for objname in objects_before_command:
                     self.unregister_graphite_object(objname)
                 for objname in dir(self.scene_graph.objects):
                     structure = self.register_graphite_object(objname)
-                    if objname in visible_objects_before_command:
-                        structure.set_enabled(True)
                         
             self.queued_execute_command = False
         if self.queued_close_command:
@@ -428,6 +418,8 @@ class GraphiteApp:
         # that need to have the exact same number of args.
         if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
             self.args['invoked_from_gui'] = True
+        # Initialize arguments, get default values as string, convert them to
+        # correct type.
         for i in range(mmethod.nb_args()):
             val = ''
             if mmethod.ith_arg_has_default_value(i):
@@ -733,6 +725,15 @@ class GraphiteApp:
                 self.register_command(mclass, getattr(methodsclass,method_name))
         self.scene_graph.register_grob_commands(grobclass,mclass)
         return mclass
+
+    def register_enum(self, name, values):
+        menum = gom.meta_types.OGF.MetaEnum.create(name)
+        index = 0
+        for value in values:
+            menum.add_value(value, index)
+            index = index + 1
+        gom.bind_meta_type(menum)
+        return menum
     
     # ===== Graphite - Polyscope interop =======================
 
@@ -846,15 +847,10 @@ graphite = GraphiteApp()
 # commands written in C++
 
 # Declare a new enum type
-menum = gom.meta_types.OGF.MetaEnum.create('OGF::FlipAxis')
-menum.add_value('FLIP_X',0)
-menum.add_value('FLIP_Y',1)
-menum.add_value('FLIP_Z',2)
-menum.add_value('ROT_X',3)
-menum.add_value('ROT_Y',4)
-menum.add_value('ROT_Z',5)
-menum.add_value('PERM_XYZ',6)
-gom.bind_meta_type(menum)
+graphite.register_enum(
+    'OGF::FlipAxis',
+    ['FLIP_X','FLIP_Y','FLIP_Z','ROT_X','ROT_Y','ROT_Z','PERM_XYZ']
+)
 
 # Declare a new Commands class for MeshGrob
 class MeshGrobPolyScopeCommands:
@@ -865,6 +861,8 @@ class MeshGrobPolyScopeCommands:
     #   interface: the target of the function call
     #   method: a string with the name of the method called. It can be used
     #   to dispatch several slots to the same function
+    # Note that Python functions declared to Graphite do not take self as argument
+    #   (they are like C++ static class functions)
     def extract_component(
             interface : gom.meta_types.OGF.Interface,
             method    : str,
@@ -886,7 +884,7 @@ class MeshGrobPolyScopeCommands:
     def flip_or_rotate(
             interface : gom.meta_types.OGF.Interface,
             method    : str,
-            axis      : gom.meta_types.OGF.FlipAxis,
+            axis      : gom.meta_types.OGF.FlipAxis, # the new enum type declared above
             center    : bool
     ):
         """flips axes of an object or rotate around an axis"""
@@ -933,9 +931,9 @@ mclass = graphite.register_commands(
 
 # special flag, needed to avoid destroying the PolyScope structure
 # that we just created, see GraphiteApp.handle_queued_command()
-mclass.extract_component.create_custom_attribute('keep_structures','true')
+mclass.extract_component.create_custom_attribute('keep_structures',True)
 mclass.extract_component.create_custom_attribute('menu','/Attributes/Polyscope')
-mclass.flip_or_rotate.set_arg_default_value('center','true')
+mclass.flip_or_rotate.set_arg_default_value('center',True)
 mclass.flip_or_rotate.create_custom_attribute('menu','/Mesh')
 
 #=====================================================
