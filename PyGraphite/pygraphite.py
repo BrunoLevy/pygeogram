@@ -10,6 +10,7 @@
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
 #  - Reset factory settings
+#  - SceneGraph "edit mode" (move up / move down / delete)
 
 import polyscope as ps
 import numpy as np
@@ -87,6 +88,9 @@ class GraphiteApp:
         gom.connect(application.notify_progress,       self.progress_CB)
         gom.connect(application.notify_progress_end,   self.progress_end_CB)
 
+        # scene graph GUI
+        self.edit_scenegraph = True
+        
     #====== Main application loop ==========================================
     
     def run(self,args):
@@ -220,28 +224,44 @@ class GraphiteApp:
 
 
     def draw_scenegraph_GUI(self):
+
+        direc = ps.imgui.ImGuiDir_Right
+        if self.edit_scenegraph:
+            direc = ps.imgui.ImGuiDir_Down
+        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
+        if ps.imgui.ArrowButton('edit',direc):
+            self.edit_scenegraph = not self.edit_scenegraph
+        if ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip('Edit scenegraph')
+        ps.imgui.PopStyleVar()
+        
         C = self.scene_graph.current()
         if C != None:
-            nv = C.I.Editor.nb_vertices
-            nf = C.I.Editor.nb_facets
-            ps.imgui.Text(C.name)
-            ps.imgui.Text('   vertices: ' + str(nv))
-            ps.imgui.Text('   facets: ' + str(nf))
+            ps.imgui.SameLine()
+            ps.imgui.Text('   current: ' + C.name)
+            
             
         # Get scene objects, I do that instead of dir(self.scene_graph.objects)
         # to keep the order of the objects.
         objects = []
         for i in range(self.scene_graph.nb_children):
             objects.append(self.scene_graph.ith_child(i).name)
-            
+
         ps.imgui.BeginListBox('##Objects',[-1,200])
         for objname in objects:
+
+            itemwidth = ps.imgui.GetContentRegionAvail()[0]
+            if self.edit_scenegraph and self.scene_graph.current_object == objname:
+                itemwidth = itemwidth - 75
+                
             sel,_=ps.imgui.Selectable(
                 objname, (objname == self.scene_graph.current().name),
-                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick
+                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick,
+                [itemwidth,0]
             )
             if sel:
                 self.scene_graph.current_object = objname
+                    
                 if ps.imgui.IsMouseDoubleClicked(0):
                     for objname2 in dir(self.scene_graph.objects):
                         self.structure_map[objname2].set_enabled(
@@ -249,12 +269,6 @@ class GraphiteApp:
                         )
             
             if ps.imgui.BeginPopupContextItem(objname+'##ops'):
-                if ps.imgui.MenuItem('delete object'):
-                    self.scene_graph.current_object = objname
-                    self.set_command(
-                        self.scene_graph.I.Scene.delete_current
-                    )
-                
                 if ps.imgui.MenuItem('rename object'):
                     self.scene_graph.current_object = objname
                     self.set_command(
@@ -272,18 +286,6 @@ class GraphiteApp:
                         getattr(self.scene_graph.objects,objname).save
                     )
 
-                if ps.imgui.MenuItem('move up'):
-                    bkp = self.scene_graph.current_object
-                    self.scene_graph.current_object = objname
-                    self.scene_graph.move_current_up()
-                    self.scene_graph.current_object = bkp
-
-                if ps.imgui.MenuItem('move down'):
-                    bkp = self.scene_graph.current_object
-                    self.scene_graph.current_object = objname
-                    self.scene_graph.move_current_down()
-                    self.scene_graph.current_object = bkp
-
                 if ps.imgui.MenuItem('commit transform'):
                     self.commit_transform(
                         getattr(self.scene_graph.objects,objname)
@@ -297,7 +299,33 @@ class GraphiteApp:
                 self.draw_menumap(
                     self.menu_map,getattr(self.scene_graph.objects,objname)
                 )
-                ps.imgui.EndPopup()	      
+                ps.imgui.EndPopup()
+
+            if self.edit_scenegraph and self.scene_graph.current_object == objname:
+                ps.imgui.SameLine()
+                ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
+                if ps.imgui.ArrowButton('^'+objname,ps.imgui.ImGuiDir_Up):
+                    self.scene_graph.current_object = objname
+                    self.scene_graph.move_current_up()
+                if ps.imgui.IsItemHovered():
+                    ps.imgui.SetTooltip('Move object up')
+                ps.imgui.SameLine()
+                if ps.imgui.ArrowButton('v'+objname,ps.imgui.ImGuiDir_Down):
+                    self.scene_graph.current_object = objname
+                    self.scene_graph.move_current_down()
+                if ps.imgui.IsItemHovered():
+                    ps.imgui.SetTooltip('Move object down')
+                ps.imgui.SameLine()
+                ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
+                if ps.imgui.Button('X'+'##'+objname):
+                    self.unregister_graphite_object(objname)                    
+                    self.scene_graph.current_object = objname
+                    self.scene_graph.delete_current_object()
+                if ps.imgui.IsItemHovered():
+                    ps.imgui.SetTooltip('Delete object')
+                ps.imgui.PopStyleVar()                    
+                ps.imgui.PopStyleVar()
+                
         ps.imgui.EndListBox()
 
     def draw_command(self):
@@ -1000,12 +1028,13 @@ class MeshGrobPolyScopeCommands:
             structure.update_point_positions(pts_array)
 
 # register our new commands so that Graphite GUI sees them            
-mclass = graphite.register_commands(
+graphite.register_commands(
     gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
 
 #=====================================================
 # Initialize Polyscope and enter app main loop
+ps.set_program_name('PyGraphite/PolyScope')
 ps.init()
 ps.set_up_dir('z_up')
 ps.set_front_dir('y_front')
