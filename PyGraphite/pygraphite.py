@@ -9,6 +9,7 @@
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
+#  - Reset factory settings
 
 import polyscope as ps
 import numpy as np
@@ -302,6 +303,9 @@ class GraphiteApp:
     def draw_command(self):
         """ Draws the GUI for the current Graphite command """
         if self.request != None:
+            ps.imgui.Text(
+                'Command: ' + self.request.method().name.replace('_',' ')
+            )
             grob = self.get_grob(self.request)
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
@@ -312,9 +316,6 @@ class GraphiteApp:
                 objname = grob.name
                 
             ps.imgui.Text('Object: ' + objname)
-            ps.imgui.Text(
-                'Command: ' + self.request.method().name.replace('_',' ')
-            )
             if (ps.imgui.IsItemHovered() and
                 self.request.method().has_custom_attribute('help')):
                 ps.imgui.SetTooltip(
