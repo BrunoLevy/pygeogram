@@ -318,6 +318,8 @@ class GraphiteApp:
                 ps.imgui.SameLine()
                 ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
                 if ps.imgui.Button('X'+'##'+objname):
+                    if self.request != None and self.get_grob(self.request).name == objname:
+                        self.reset_command()
                     self.unregister_graphite_object(objname)                    
                     self.scene_graph.current_object = objname
                     self.scene_graph.delete_current_object()
