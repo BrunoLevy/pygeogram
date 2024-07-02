@@ -1,5 +1,5 @@
 # TODO:
-#  - Guizmo appears at a weird location (not visible)
+#  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
 #  - voxel grids and images (one MenuMap per grob type)
 #  - multiple PolyScope objects for each Graphite object (points, borders,...)
@@ -7,15 +7,14 @@
 #  - a basic file browser
 #  - pulldown to change target object in a command
 #  - commands that take attributes, get list from current object, as in Graphite
+#  - I need a console to enter Python commands, with autocompletion of course
+#  - Highlight selected
 
 import polyscope as ps
 import numpy as np
 import gompy
 import math,sys,time
 import typing
-
-global graphite
-
 
 class GraphiteApp:
 
@@ -227,7 +226,13 @@ class GraphiteApp:
             ps.imgui.Text(C.name)
             ps.imgui.Text('   vertices: ' + str(nv))
             ps.imgui.Text('   facets: ' + str(nf))
-        objects = dir(self.scene_graph.objects)
+            
+        # Get scene objects, I do that instead of dir(self.scene_graph.objects)
+        # to keep the order of the objects.
+        objects = []
+        for i in range(self.scene_graph.nb_children):
+            objects.append(self.scene_graph.ith_child(i).name)
+            
         ps.imgui.BeginListBox('##Objects',[-1,200])
         for objname in objects:
             sel,_=ps.imgui.Selectable(
@@ -265,6 +270,18 @@ class GraphiteApp:
                     self.set_command(
                         getattr(self.scene_graph.objects,objname).save
                     )
+
+                if ps.imgui.MenuItem('move up'):
+                    bkp = self.scene_graph.current_object
+                    self.scene_graph.current_object = objname
+                    self.scene_graph.move_current_up()
+                    self.scene_graph.current_object = bkp
+
+                if ps.imgui.MenuItem('move down'):
+                    bkp = self.scene_graph.current_object
+                    self.scene_graph.current_object = objname
+                    self.scene_graph.move_current_down()
+                    self.scene_graph.current_object = bkp
 
                 if ps.imgui.MenuItem('commit transform'):
                     self.commit_transform(
