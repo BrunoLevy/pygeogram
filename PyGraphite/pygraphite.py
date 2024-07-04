@@ -89,7 +89,6 @@ class GraphiteApp:
         gom.connect(application.notify_progress_end,   self.progress_end_CB)
 
         # scene graph edition
-        self.edit_scenegraph = True
         self.rename_old = None
         self.rename_new   = None
         
@@ -224,25 +223,7 @@ class GraphiteApp:
                 ps.imgui.EndMenu()
             ps.imgui.EndMenuBar()
 
-
     def draw_scenegraph_GUI(self):
-
-        direc = ps.imgui.ImGuiDir_Right
-        if self.edit_scenegraph:
-            direc = ps.imgui.ImGuiDir_Down
-        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
-        if ps.imgui.ArrowButton('edit',direc):
-            self.edit_scenegraph = not self.edit_scenegraph
-        if ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip('Edit scenegraph')
-        ps.imgui.PopStyleVar()
-        
-        C = self.scene_graph.current()
-        if C != None:
-            ps.imgui.SameLine()
-            ps.imgui.Text('   current: ' + C.name)
-            
-            
         # Get scene objects, I do that instead of dir(self.scene_graph.objects)
         # to keep the order of the objects.
         objects = []
@@ -258,8 +239,7 @@ class GraphiteApp:
     def draw_object_GUI(self, object):
         objname = object.name
         itemwidth = ps.imgui.GetContentRegionAvail()[0]
-        show_buttons = (self.edit_scenegraph and
-                        self.scene_graph.current_object == objname and
+        show_buttons = (self.scene_graph.current_object == objname and
                         self.rename_old == None)
 
         if (show_buttons):
@@ -385,10 +365,12 @@ class GraphiteApp:
                         has_advanced_args = True
                     else:
                         nb_standard_args = nb_standard_args + 1
-                height = nb_standard_args * 35
+                height = 10 + nb_standard_args * 25
                 if has_advanced_args:
-                    height = height + 20
+                    height = height + 25
                 ps.imgui.BeginListBox('##Command',[-1,height])
+                ps.imgui.Spacing()
+                ps.imgui.Spacing()
                 for i in range(mmethod.nb_args()):
                     tooltip = None
                     if not self.ith_arg_is_advanced(i):
