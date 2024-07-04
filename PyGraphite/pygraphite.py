@@ -9,9 +9,8 @@
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
-#  - Reset factory settings
-#  - SceneGraph "edit mode" (move up / move down / delete)
-
+#  - cleaner scene-graph commands
+#  - load object crashes
 import polyscope as ps
 import numpy as np
 import gompy
@@ -253,7 +252,7 @@ class GraphiteApp:
                 ps.imgui.ImGuiInputTextFlags_EnterReturnsTrue |
 		ps.imgui.ImGuiInputTextFlags_AutoSelectAll
             )
-            if sel:
+            if sel: # <enter> was pressed, rename object
                 if self.rename_old != self.rename_new:
                     self.unregister_graphite_object(object.name)
                     object.rename(self.rename_new)
@@ -300,10 +299,10 @@ class GraphiteApp:
 
             if ps.imgui.MenuItem('commit transform'):
                 self.commit_transform(object)
-                if ps.imgui.IsItemHovered():
-                    ps.imgui.SetTooltip(
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip(
                     'transforms vertices according to Polyscope transform guizmo'
-                    )
+                )
                     
             ps.imgui.Separator() 
             self.draw_menumap(self.menu_map,object)
@@ -367,7 +366,7 @@ class GraphiteApp:
                         has_advanced_args = True
                     else:
                         nb_standard_args = nb_standard_args + 1
-                height = 10 + nb_standard_args * 25
+                height = 25 + nb_standard_args * 25
                 if has_advanced_args:
                     height = height + 25
                 ps.imgui.BeginListBox('##Command',[-1,height])
@@ -418,6 +417,11 @@ class GraphiteApp:
                 self.reset_command()
             if ps.imgui.IsItemHovered():
                 ps.imgui.SetTooltip('Close command')
+            ps.imgui.SameLine()                
+            if ps.imgui.Button('Reset'):
+                self.set_command(self.request)
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Reset factory settings')
 
     # This function is called right after PolyScope has finished rendering
                 
