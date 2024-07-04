@@ -90,8 +90,8 @@ class GraphiteApp:
 
         # scene graph edition
         self.edit_scenegraph = True
-        self.rename_object = None
-        self.rename_name   = None
+        self.rename_old = None
+        self.rename_new   = None
         
     #====== Main application loop ==========================================
     
@@ -251,13 +251,34 @@ class GraphiteApp:
 
         ps.imgui.BeginListBox('##Objects',[-1,200])
         for objname in objects:
+            object = getattr(self.scene_graph.objects,objname)        
+            self.draw_object_GUI(object)
+        ps.imgui.EndListBox()
 
-            itemwidth = ps.imgui.GetContentRegionAvail()[0]
-            if (self.edit_scenegraph and
-                self.scene_graph.current_object == objname and
-                self.rename_object == None):
-                itemwidth = itemwidth - 75
-                
+    def draw_object_GUI(self, object):
+        objname = object.name
+        itemwidth = ps.imgui.GetContentRegionAvail()[0]
+        if (self.edit_scenegraph and
+            self.scene_graph.current_object == objname and
+            self.rename_old == None):
+            itemwidth = itemwidth - 75
+
+        if self.rename_old == objname:
+            if self.rename_old == self.rename_new:
+                ps.imgui.SetKeyboardFocusHere(0)
+            sel,self.rename_new=ps.imgui.InputText(
+                'rename ' + objname,self.rename_new,
+                ps.imgui.ImGuiInputTextFlags_EnterReturnsTrue |
+		ps.imgui.ImGuiInputTextFlags_AutoSelectAll
+            )
+            if sel:
+                self.unregister_graphite_object(object.name)
+                object.rename(self.rename_new)
+                self.scene_graph.current_object = object.name
+                self.register_graphite_object(object.name)
+                self.rename_old = None
+                self.rename_new = None
+        else:
             sel,_=ps.imgui.Selectable(
                 objname, (objname == self.scene_graph.current().name),
                 ps.imgui.ImGuiSelectableFlags_AllowDoubleClick,
@@ -265,78 +286,70 @@ class GraphiteApp:
             )
             if sel:
                 self.scene_graph.current_object = objname
-                    
-                if ps.imgui.IsMouseDoubleClicked(0):
-                    for objname2 in dir(self.scene_graph.objects):
-                        self.structure_map[objname2].set_enabled(
-                            objname2==objname
-                        )
-            
-            if ps.imgui.BeginPopupContextItem(objname+'##ops'):
-                if ps.imgui.MenuItem('rename object'):
-                    self.scene_graph.current_object = objname
-                    self.set_command(
-                        self.scene_graph.I.Scene.rename_current
-                    )
+            if ps.imgui.IsMouseDoubleClicked(0):
+                for objname2 in dir(self.scene_graph.objects):
+                    self.structure_map[objname2].set_enabled(objname2==objname)
 
-                if ps.imgui.MenuItem('duplicate object'):
-                    self.scene_graph.current_object = objname
-                    self.set_command(
-                        self.scene_graph.I.Scene.duplicate_current
-                    )
+        self.draw_object_menu(object)
 
-                if ps.imgui.MenuItem('save object'):
-                    self.set_command(
-                        getattr(self.scene_graph.objects,objname).save
-                    )
+        if (self.edit_scenegraph and
+            self.scene_graph.current_object == objname
+            and self.rename_old == None):
+            ps.imgui.SameLine()
+            self.draw_object_buttons(object)
+        
+    def draw_object_menu(self, object):
+        if ps.imgui.BeginPopupContextItem(object.name+'##ops'):
+            if ps.imgui.MenuItem('rename'):
+                self.rename_old = object.name
+                self.rename_new = object.name
+                
+            if ps.imgui.MenuItem('duplicate'):
+                self.scene_graph.current_object = object.name
+                self.set_command(self.scene_graph.I.Scene.duplicate_current)
 
-                if ps.imgui.MenuItem('commit transform'):
-                    self.commit_transform(
-                        getattr(self.scene_graph.objects,objname)
-                    )
+            if ps.imgui.MenuItem('save object'):
+                self.set_command(object.save)
+
+            if ps.imgui.MenuItem('commit transform'):
+                self.commit_transform(object)
                 if ps.imgui.IsItemHovered():
                     ps.imgui.SetTooltip(
                     'transforms vertices according to Polyscope transform guizmo'
                     )
                     
-                ps.imgui.Separator() 
-                self.draw_menumap(
-                    self.menu_map,getattr(self.scene_graph.objects,objname)
-                )
-                ps.imgui.EndPopup()
+            ps.imgui.Separator() 
+            self.draw_menumap(self.menu_map,object)
+            ps.imgui.EndPopup()
 
-            if (self.edit_scenegraph and
-                self.scene_graph.current_object == objname
-                and self.rename_object == None):
-                ps.imgui.SameLine()
-                ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
-                if ps.imgui.ArrowButton('^'+objname,ps.imgui.ImGuiDir_Up):
-                    self.scene_graph.current_object = objname
-                    self.scene_graph.move_current_up()
-                if ps.imgui.IsItemHovered():
-                    ps.imgui.SetTooltip('Move object up')
-                ps.imgui.SameLine()
-                if ps.imgui.ArrowButton('v'+objname,ps.imgui.ImGuiDir_Down):
-                    self.scene_graph.current_object = objname
-                    self.scene_graph.move_current_down()
-                if ps.imgui.IsItemHovered():
-                    ps.imgui.SetTooltip('Move object down')
-                ps.imgui.SameLine()
-                ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
-                if ps.imgui.Button('X'+'##'+objname):
-                    if (self.request != None and
-                        self.get_grob(self.request).name == objname):
-                        self.reset_command()
-                    self.unregister_graphite_object(objname)                    
-                    self.scene_graph.current_object = objname
-                    self.scene_graph.delete_current_object()
-                if ps.imgui.IsItemHovered():
-                    ps.imgui.SetTooltip('Delete object')
-                ps.imgui.PopStyleVar()                    
-                ps.imgui.PopStyleVar()
-                
-        ps.imgui.EndListBox()
-
+    def draw_object_buttons(self, object):
+        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
+        if ps.imgui.ArrowButton('^'+object.name,ps.imgui.ImGuiDir_Up):
+            self.scene_graph.current_object = object.name
+            self.scene_graph.move_current_up()
+        if ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip('Move object up')
+        ps.imgui.SameLine()
+        if ps.imgui.ArrowButton('v'+object.name,ps.imgui.ImGuiDir_Down):
+            self.scene_graph.current_object = object.name
+            self.scene_graph.move_current_down()
+        if ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip('Move object down')
+        ps.imgui.SameLine()
+        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
+        if ps.imgui.Button('X'+'##'+object.name):
+            if (self.request != None and
+                self.get_grob(self.request).name == object.name):
+                self.reset_command()
+            self.unregister_graphite_object(object.name)                    
+            self.scene_graph.current_object = object.name
+            self.scene_graph.delete_current_object()
+            if ps.imgui.IsItemHovered():
+                ps.imgui.SetTooltip('Delete object')
+            ps.imgui.PopStyleVar()                    
+            ps.imgui.PopStyleVar()
+            
+            
     def draw_command(self):
         """ Draws the GUI for the current Graphite command """
         if self.request != None:
