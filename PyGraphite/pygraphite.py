@@ -88,8 +88,10 @@ class GraphiteApp:
         gom.connect(application.notify_progress,       self.progress_CB)
         gom.connect(application.notify_progress_end,   self.progress_end_CB)
 
-        # scene graph GUI
+        # scene graph edition
         self.edit_scenegraph = True
+        self.rename_object = None
+        self.rename_name   = None
         
     #====== Main application loop ==========================================
     
@@ -251,7 +253,9 @@ class GraphiteApp:
         for objname in objects:
 
             itemwidth = ps.imgui.GetContentRegionAvail()[0]
-            if self.edit_scenegraph and self.scene_graph.current_object == objname:
+            if (self.edit_scenegraph and
+                self.scene_graph.current_object == objname and
+                self.rename_object == None):
                 itemwidth = itemwidth - 75
                 
             sel,_=ps.imgui.Selectable(
@@ -301,7 +305,9 @@ class GraphiteApp:
                 )
                 ps.imgui.EndPopup()
 
-            if self.edit_scenegraph and self.scene_graph.current_object == objname:
+            if (self.edit_scenegraph and
+                self.scene_graph.current_object == objname
+                and self.rename_object == None):
                 ps.imgui.SameLine()
                 ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
                 if ps.imgui.ArrowButton('^'+objname,ps.imgui.ImGuiDir_Up):
@@ -318,7 +324,8 @@ class GraphiteApp:
                 ps.imgui.SameLine()
                 ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
                 if ps.imgui.Button('X'+'##'+objname):
-                    if self.request != None and self.get_grob(self.request).name == objname:
+                    if (self.request != None and
+                        self.get_grob(self.request).name == objname):
                         self.reset_command()
                     self.unregister_graphite_object(objname)                    
                     self.scene_graph.current_object = objname
@@ -809,7 +816,7 @@ class GraphiteApp:
         for line in pyfunc.__doc__.split('\n'):
             try:
                 kw,val = line.split(maxsplit=1)
-                kw = kw[1:]
+                kw = kw[1:] # remove leading '@'
                 if kw == 'param[in]':
                     eqpos = val.find('=')
                     if eqpos == -1:
