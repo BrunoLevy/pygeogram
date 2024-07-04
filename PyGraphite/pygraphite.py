@@ -269,9 +269,11 @@ class GraphiteApp:
             )
             if sel:
                 self.scene_graph.current_object = objname
-            if ps.imgui.IsMouseDoubleClicked(0):
-                for objname2 in dir(self.scene_graph.objects):
-                    self.structure_map[objname2].set_enabled(objname2==objname)
+                if ps.imgui.IsMouseDoubleClicked(0):
+                    for objname2 in dir(self.scene_graph.objects):
+                        self.structure_map[objname2].set_enabled(
+                            objname2==objname
+                        )
 
         self.draw_object_menu(object)
 
