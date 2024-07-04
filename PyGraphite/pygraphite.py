@@ -258,27 +258,30 @@ class GraphiteApp:
     def draw_object_GUI(self, object):
         objname = object.name
         itemwidth = ps.imgui.GetContentRegionAvail()[0]
-        if (self.edit_scenegraph and
-            self.scene_graph.current_object == objname and
-            self.rename_old == None):
+        show_buttons = (self.edit_scenegraph and
+                        self.scene_graph.current_object == objname and
+                        self.rename_old == None)
+
+        if (show_buttons):
             itemwidth = itemwidth - 75
 
-        if self.rename_old == objname:
+        if self.rename_old == objname: # if object is being renamed
             if self.rename_old == self.rename_new:
                 ps.imgui.SetKeyboardFocusHere(0)
             sel,self.rename_new=ps.imgui.InputText(
-                'rename ' + objname,self.rename_new,
+                'rename##' + objname,self.rename_new,
                 ps.imgui.ImGuiInputTextFlags_EnterReturnsTrue |
 		ps.imgui.ImGuiInputTextFlags_AutoSelectAll
             )
             if sel:
-                self.unregister_graphite_object(object.name)
-                object.rename(self.rename_new)
-                self.scene_graph.current_object = object.name
-                self.register_graphite_object(object.name)
+                if self.rename_old != self.rename_new:
+                    self.unregister_graphite_object(object.name)
+                    object.rename(self.rename_new)
+                    self.scene_graph.current_object = object.name
+                    self.register_graphite_object(object.name)
                 self.rename_old = None
                 self.rename_new = None
-        else:
+        else: # standard operation (object is not being renamed)
             sel,_=ps.imgui.Selectable(
                 objname, (objname == self.scene_graph.current().name),
                 ps.imgui.ImGuiSelectableFlags_AllowDoubleClick,
@@ -292,9 +295,7 @@ class GraphiteApp:
 
         self.draw_object_menu(object)
 
-        if (self.edit_scenegraph and
-            self.scene_graph.current_object == objname
-            and self.rename_old == None):
+        if show_buttons:
             ps.imgui.SameLine()
             self.draw_object_buttons(object)
         
@@ -303,11 +304,15 @@ class GraphiteApp:
             if ps.imgui.MenuItem('rename'):
                 self.rename_old = object.name
                 self.rename_new = object.name
-                
+
             if ps.imgui.MenuItem('duplicate'):
                 self.scene_graph.current_object = object.name
-                self.set_command(self.scene_graph.I.Scene.duplicate_current)
-
+                new_object = self.scene_graph.duplicate_current()
+                self.register_graphite_object(new_object.name)
+                self.scene_graph.current_object = new_object.name
+                self.rename_old = new_object.name
+                self.rename_new = new_object.name
+                
             if ps.imgui.MenuItem('save object'):
                 self.set_command(object.save)
 
