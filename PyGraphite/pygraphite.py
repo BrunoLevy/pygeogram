@@ -370,6 +370,84 @@ class AutoGUI:
 
 #=========================================================================
 
+class PyAutoGUI:
+    """ Python-AutoGUI interop """
+
+    def register_enum(name: str, values: list):
+        menum = gom.meta_types.OGF.MetaEnum.create(name)
+        index = 0
+        for value in values:
+            menum.add_value(value, index)
+            index = index + 1
+        gom.bind_meta_type(menum)
+        return menum
+    
+    def register_commands(
+            scene_graph: gom.meta_types.OGF.SceneGraph,
+            grobclass: gom.meta_types.OGF.MetaClass, methodsclass
+    ):
+        baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
+        mclass = baseclass.create_subclass(
+            'OGF::' + methodsclass.__name__
+        )
+        mclass.add_constructor()
+        for method_name in dir(methodsclass):
+            if (
+                    not method_name.startswith('__') or
+                    not method_name.endswith('__')
+            ):
+                pyfunc = getattr(methodsclass,method_name)
+                mslot = PyAutoGUI.register_command(mclass, pyfunc)
+        scene_graph.register_grob_commands(grobclass,mclass)
+        return mclass
+
+    def register_command(mclass: gom.meta_types.OGF.MetaClass, pyfunc):
+        # small table to translate standard Python types into
+        # GOM metatypes
+        python2gom = {
+            str:   gom.meta_types.std.string,
+            int:   gom.meta_types.int,
+            float: gom.meta_types.float,
+            bool:  gom.meta_types.bool
+        }
+        mslot = mclass.add_slot(pyfunc.__name__,pyfunc)
+        for argname, argtype in typing.get_type_hints(pyfunc).items():
+            if argtype in python2gom:
+                argtype = python2gom[argtype]
+            if (
+                    argname != 'interface' and
+                    argname != 'method'   and
+                    argname != 'return'
+            ):
+                mslot.add_arg(argname, argtype)
+        PyAutoGUI.parse_doc(mslot,pyfunc)
+        return mslot
+    
+    def parse_doc(mslot, pyfunc):
+        if pyfunc.__doc__ == None:
+            return 
+        for line in pyfunc.__doc__.split('\n'):
+            try:
+                kw,val = line.split(maxsplit=1)
+                kw = kw[1:] # remove leading '@'
+                if kw == 'param[in]':
+                    eqpos = val.find('=')
+                    if eqpos == -1:
+                        argname,argdoc = val.split(maxsplit=1)
+                    else:
+                        val = val.replace('=',' ')
+                        argname,argdef,argdoc = val.split(maxsplit=2)
+                        mslot.set_arg_default_value(argname, argdef)
+                    mslot.set_arg_custom_attribute(argname, 'help', argdoc)
+                elif kw == 'brief':
+                    mslot.set_custom_attribute('help',val)
+                else:
+                    mslot.set_custom_attribute(kw, val)
+            except:
+                None
+    
+#=========================================================================
+
 class GraphiteApp:
 
     #===== Application logic =============================================
@@ -834,76 +912,6 @@ class GraphiteApp:
     
     # ===== Python - GOM interop ===============================
 
-    def register_enum(self, name, values):
-        menum = gom.meta_types.OGF.MetaEnum.create(name)
-        index = 0
-        for value in values:
-            menum.add_value(value, index)
-            index = index + 1
-        gom.bind_meta_type(menum)
-        return menum
-    
-    def register_commands(self, grobclass, methodsclass):
-        baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
-        mclass = baseclass.create_subclass(
-            'OGF::' + methodsclass.__name__
-        )
-        mclass.add_constructor()
-        for method_name in dir(methodsclass):
-            if (
-                    not method_name.startswith('__') or
-                    not method_name.endswith('__')
-            ):
-                pyfunc = getattr(methodsclass,method_name)
-                mslot = self.register_command(mclass, pyfunc)
-        self.scene_graph.register_grob_commands(grobclass,mclass)
-        return mclass
-
-    def register_command(self, mclass, pyfunc):
-        # small table to translate standard Python types into
-        # GOM metatypes
-        python2gom = {
-            str:   gom.meta_types.std.string,
-            int:   gom.meta_types.int,
-            float: gom.meta_types.float,
-            bool:  gom.meta_types.bool
-        }
-        mslot = mclass.add_slot(pyfunc.__name__,pyfunc)
-        for argname, argtype in typing.get_type_hints(pyfunc).items():
-            if argtype in python2gom:
-                argtype = python2gom[argtype]
-            if (
-                    argname != 'interface' and
-                    argname != 'method'   and
-                    argname != 'return'
-            ):
-                mslot.add_arg(argname, argtype)
-        self.parse_doc(mslot,pyfunc)
-        return mslot
-    
-    def parse_doc(self, mslot, pyfunc):
-        if pyfunc.__doc__ == None:
-            return 
-        for line in pyfunc.__doc__.split('\n'):
-            try:
-                kw,val = line.split(maxsplit=1)
-                kw = kw[1:] # remove leading '@'
-                if kw == 'param[in]':
-                    eqpos = val.find('=')
-                    if eqpos == -1:
-                        argname,argdoc = val.split(maxsplit=1)
-                    else:
-                        val = val.replace('=',' ')
-                        argname,argdef,argdoc = val.split(maxsplit=2)
-                        mslot.set_arg_default_value(argname, argdef)
-                    mslot.set_arg_custom_attribute(argname, 'help', argdoc)
-                elif kw == 'brief':
-                    mslot.set_custom_attribute('help',val)
-                else:
-                    mslot.set_custom_attribute(kw, val)
-            except:
-                None
-    
     # ===== Graphite - Polyscope interop =======================
 
     def register_graphite_object(self,objname,attribute_to_show=None):
@@ -941,6 +949,8 @@ class GraphiteApp:
             self.register_graphite_object(objname)
 
     def unregister_graphite_object(self,objname):
+        if not objname in self.structure_map:
+            return
         self.structure_map[objname].remove()
         del self.structure_map[objname]
             
@@ -949,6 +959,8 @@ class GraphiteApp:
             self.unregister_graphite_object(objname)
 
     def commit_transform(self, o):
+        if not o.name in self.structure_map:
+            return
         structure = self.structure_map[o.name]
         xform = structure.get_transform()
         # if xform is identity, nothing to do
@@ -1018,7 +1030,7 @@ graphite = GraphiteApp()
 # commands written in C++
 
 # Declare a new enum type
-graphite.register_enum(
+PyAutoGUI.register_enum(
     'OGF::FlipAxis',
     ['FLIP_X','FLIP_Y','FLIP_Z','ROT_X','ROT_Y','ROT_Z','PERM_XYZ']
 )
@@ -1110,8 +1122,8 @@ class MeshGrobPolyScopeCommands:
             structure.update_point_positions(pts_array)
 
 # register our new commands so that Graphite GUI sees them            
-graphite.register_commands(
-    gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
+PyAutoGUI.register_commands(
+    graphite.scene_graph, gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
 
 #=====================================================
