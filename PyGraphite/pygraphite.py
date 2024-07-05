@@ -17,6 +17,165 @@ import gompy
 import math,sys,time
 import typing
 
+#=========================================================================
+
+class ArgList(dict):
+    """ A dictionary with attribute-like access """
+    def __getattr__(self, key):
+        return self[key]
+    
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __dir__(self):
+        return super().__dir__() + [str(k) for k in self.keys()]
+    
+#=========================================================================
+
+class AutoGUI:
+    """ Functions to generate the GUI from GOM meta-information """
+
+    def arg_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip:str
+    ):
+        """ Handles the GUI for a parameter """
+        if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
+            AutoGUI.enum_handler(o, property_name, mtype, tooltip)
+            return
+        handler_name = mtype.name.replace(' ','_').replace(':','_') + '_handler'
+        if hasattr(AutoGUI, handler_name):
+            getattr(AutoGUI, handler_name)(o,property_name, mtype, tooltip)
+            return
+        AutoGUI.string_handler(o, property_name, mtype, tooltip)
+        
+    def string_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for a string parameter """
+        AutoGUI.label(property_name, tooltip)        
+        ps.imgui.SameLine()
+        ps.imgui.PushItemWidth(-20)
+        val = getattr(o,property_name)
+        _,val = ps.imgui.InputText(
+            '##properties##' + property_name, val
+        )
+        ps.imgui.PopItemWidth()
+        setattr(o,property_name,val)
+
+    def bool_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for a boolean parameter """
+        ps.imgui.PushItemWidth(-1)
+        val = getattr(o,property_name)
+        _,val = ps.imgui.Checkbox(
+            property_name.replace('_',' '), val
+        )
+        if tooltip != None and ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip(tooltip)
+        ps.imgui.PopItemWidth()
+        setattr(o,property_name,val)
+
+    def int_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for an integer parameter """
+        AutoGUI.label(property_name, tooltip)
+        ps.imgui.SameLine()
+        ps.imgui.PushItemWidth(-20)
+        val = getattr(o,property_name)
+        _,val = ps.imgui.InputInt(
+            '##properties##' + property_name, val, 1
+        )
+        ps.imgui.PopItemWidth()
+        setattr(o,property_name,val)
+
+    def unsigned_int_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for an unsigned integer parameter """
+        AutoGUI.label(property_name, tooltip)
+        ps.imgui.SameLine()
+        ps.imgui.PushItemWidth(-20)
+        val = getattr(o,property_name)
+        if val < 0:
+            val = 0
+        _,val = ps.imgui.InputInt(
+            '##properties##' + property_name, val, 1
+        )
+        ps.imgui.PopItemWidth()
+        setattr(o,property_name,val)
+
+    def OGF__MeshGrobName_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for a MeshGrobName parameter """
+        values = gom.get_environment_value('OGF::MeshGrob_instances')
+        AutoGUI.combo_box(o, property_name, values, tooltip)
+
+    def OGF__GrobClassName_handler(
+            o: object, property_name: str,
+            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+    ):
+        """ Handles the GUI for a GrobClassName parameter """
+        values = gom.get_environment_value('grob_types')
+        AutoGUI.combo_box(o, property_name, values, tooltip)
+
+    def enum_handler(
+            o: object, property_name: str,
+            menum: gom.meta_types.OGF.MetaTypes, tooltip: str
+    ):
+        """ Handles the GUI for an enum parameter """
+        values = ''
+        for i in range(menum.nb_values()):
+            if i != 0:
+                values = values + ';'
+            values = values + menum.ith_name(i)
+        AutoGUI.combo_box(o, property_name, values, tooltip)
+
+    def combo_box(
+            o: object, property_name: str,
+            values: gom.meta_types.OGF.MetaTypes, tooltip: str
+    ):
+        """ Handles the GUI with a combobox, 
+            given the possible values in a ';'-separated string """
+        AutoGUI.label(property_name, tooltip)
+        if values=='':
+            return
+        if values[0] == ';':
+            values = values[1:]
+        values = values.split(';')
+
+        old_value = getattr(o,property_name)
+        found = True
+        try:
+            old_index = values.index(old_value)
+        except:
+            found = False
+            old_index = 0
+        ps.imgui.SameLine()
+        ps.imgui.PushItemWidth(-20)
+        _,new_index = ps.imgui.Combo(
+            '##properties##'+property_name, old_index, values
+        )
+        ps.imgui.PopItemWidth()
+        setattr(o,property_name,values[new_index])
+
+    def label(property_name: str, tooltip: str):
+        """ Draws the label of a parameter, 
+            and a tooltip if help is available in meta info """
+        ps.imgui.Text(property_name.replace('_',' '))
+        if tooltip != None and ps.imgui.IsItemHovered():
+            ps.imgui.SetTooltip(tooltip)
+
+#=========================================================================
+
 class GraphiteApp:
 
     #===== Application logic =============================================
@@ -378,7 +537,8 @@ class GraphiteApp:
                         if mmethod.ith_arg_has_custom_attribute(i,'help'):
                             tooltip = \
                                  mmethod.ith_arg_custom_attribute_value(i,'help')
-                        self.arg_handler(
+                        AutoGUI.arg_handler(
+                            self.args,
                             mmethod.ith_arg_name(i),
                             mmethod.ith_arg_type(i), tooltip
                         )
@@ -484,7 +644,7 @@ class GraphiteApp:
     def set_command(self, request):
         """ Sets current Graphite command, edited in the GUI """
         self.request = request
-        self.args = {}
+        self.args = ArgList()
         mmethod = self.request.method()
         # This additional arg makes the command display more information
         # in the terminal. It is not set for methods declared in Python
@@ -655,118 +815,6 @@ class GraphiteApp:
            return False
         return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
         
-    def arg_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for a parameter """
-        if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
-            self.enum_handler(property_name, mtype, tooltip)
-            return
-        handler_name = mtype.name.replace(' ','_').replace(':','_') + '_handler'
-        if hasattr(self, handler_name):
-            getattr(self, handler_name)(property_name, mtype, tooltip)
-            return
-        self.string_handler(property_name, mtype, tooltip)
-        
-    def string_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for a string parameter """
-        self.label(property_name, tooltip)        
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
-        val = self.args[property_name]
-        _,val = ps.imgui.InputText(
-            '##properties##' + property_name, val
-        )
-        ps.imgui.PopItemWidth()
-        self.args[property_name] = val
-
-    def bool_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for a boolean parameter """
-        ps.imgui.PushItemWidth(-1)
-        val = self.args[property_name]
-        _,val = ps.imgui.Checkbox(
-            property_name.replace('_',' '), val
-        )
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
-        ps.imgui.PopItemWidth()
-        self.args[property_name] = val
-
-    def int_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for an integer parameter """
-        self.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
-        val = self.args[property_name]
-        _,val = ps.imgui.InputInt(
-            '##properties##' + property_name, val, 1
-        )
-        ps.imgui.PopItemWidth()
-        self.args[property_name] = val
-
-    def unsigned_int_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for an unsigned integer parameter """
-        self.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
-        val = self.args[property_name]
-        if val < 0:
-            val = 0
-        _,val = ps.imgui.InputInt(
-            '##properties##' + property_name, val, 1
-        )
-        ps.imgui.PopItemWidth()
-        self.args[property_name] = val
-
-    def OGF__MeshGrobName_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for a MeshGrobName parameter """
-        values = gom.get_environment_value('OGF::MeshGrob_instances')
-        self.combo_box(property_name, values, tooltip)
-
-    def OGF__GrobClassName_handler(self, property_name, mtype, tooltip):
-        """ Handles the GUI for a GrobClassName parameter """
-        values = gom.get_environment_value('grob_types')
-        self.combo_box(property_name, values, tooltip)
-
-    def enum_handler(self, property_name, menum, tooltip):
-        """ Handles the GUI for an enum parameter """
-        values = ''
-        for i in range(menum.nb_values()):
-            if i != 0:
-                values = values + ';'
-            values = values + menum.ith_name(i)
-        self.combo_box(property_name, values, tooltip)
-
-    def combo_box(self, property_name, values, tooltip):
-        """ Handles the GUI with a combobox, 
-            given the possible values in a ';'-separated string """
-        self.label(property_name, tooltip)
-        if values=='':
-            return
-        if values[0] == ';':
-            values = values[1:]
-        values = values.split(';')
-
-        old_value = self.args[property_name]
-        found = True
-        try:
-            old_index = values.index(old_value)
-        except:
-            found = False
-            old_index = 0
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
-        _,new_index = ps.imgui.Combo(
-            '##properties##'+property_name, old_index, values
-        )
-        ps.imgui.PopItemWidth()
-        self.args[property_name] = values[new_index]
-
-    def label(self, property_name, tooltip):
-        """ Draws the label of a parameter, 
-            and a tooltip if help is available in meta info """
-        ps.imgui.Text(property_name.replace('_',' '))
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
-
     # ===== Python - GOM interop ===============================
 
     def register_enum(self, name, values):
