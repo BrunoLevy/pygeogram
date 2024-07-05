@@ -35,11 +35,115 @@ class ArgList(dict):
 class AutoGUI:
     """ Functions to generate the GUI from GOM meta-information """
 
+    #========= GUI handlers for commands =================================
+    
+    def handle_command(request : gom.meta_types.OGF.Request, args : ArgList):
+        """ Handles the GUI for a Graphite command """
+        ps.imgui.Text(
+            'Command: ' + request.method().name.replace('_',' ')
+        )
+        if (ps.imgui.IsItemHovered() and
+            request.method().has_custom_attribute('help')):
+            ps.imgui.SetTooltip(
+                request.method().custom_attribute_value('help')
+            )
+
+        mmethod = request.method()
+        if mmethod.nb_args() != 0:
+            nb_standard_args = 0
+            has_advanced_args = False
+            for i in range(mmethod.nb_args()):
+                if AutoGUI.ith_arg_is_advanced(mmethod,i):
+                    has_advanced_args = True
+                else:
+                    nb_standard_args = nb_standard_args + 1
+            height = 25 + nb_standard_args * 25
+            if has_advanced_args:
+                height = height + 25
+            ps.imgui.BeginListBox('##Command',[-1,height])
+            ps.imgui.Spacing()
+            ps.imgui.Spacing()
+            for i in range(mmethod.nb_args()):
+                if not AutoGUI.ith_arg_is_advanced(mmethod,i):
+                    tooltip = None
+                    if mmethod.ith_arg_has_custom_attribute(i,'help'):
+                       tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
+                    AutoGUI.arg_handler(
+                        args,
+                        mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
+                    )
+            if has_advanced_args:
+                if ps.imgui.TreeNode(
+                        'Advanced'+'##'+str(request.object())+'.'+mmethod.name
+                ):
+                    ps.imgui.TreePop()
+                    for i in range(mmethod.nb_args()):
+                        if AutoGUI.ith_arg_is_advanced(mmethod,i):
+                            tooltip = None
+                            if mmethod.ith_arg_has_custom_attribute(i,'help'):
+                                tooltip = mmethod.ith_arg_custom_attribute_value(
+                                    i,'help'
+                                )
+                            AutoGUI.arg_handler(
+                                args,
+                                mmethod.ith_arg_name(i),
+                                mmethod.ith_arg_type(i), tooltip
+                            )
+            ps.imgui.EndListBox()
+
+    def init_command_args(request : gom.meta_types.OGF.Request) -> ArgList:
+        """ Initializes an ArgList with command arguments """
+        args = ArgList()
+        mmethod = request.method()
+        # This additional arg makes the command display more information
+        # in the terminal. It is not set for methods declared in Python
+        # that need to have the exact same number of args.
+        if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
+            args['invoked_from_gui'] = True
+        # Initialize arguments, get default values as string, convert them to
+        # correct type.
+        for i in range(mmethod.nb_args()):
+            val = ''
+            if mmethod.ith_arg_has_default_value(i):
+                val = mmethod.ith_arg_default_value_as_string(i)
+            mtype = mmethod.ith_arg_type(i)
+            if mtype.is_a(gom.meta_types.bool):
+                if val == '':
+                    val = False
+                else:
+                    val = (val == 'true' or val == 'True')
+            elif (
+                mtype.is_a(gom.meta_types.int) or
+                mtype.is_a(gom.meta_types.OGF.index_t) or
+                mtype.name == 'unsigned int'
+            ):
+                if val == '':
+                    val = 0
+                else:
+                    val = int(val)
+            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.float):
+                if val == '':
+                    val = 0.0
+                else:
+                    val = float(val)
+            args[mmethod.ith_arg_name(i)] = val
+        return args
+
+    def ith_arg_is_advanced(mmethod: gom.meta_types.OGF.MetaMethod, i: int):
+        """ Tests whether an argument of a method is declared as advanced """
+        if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
+           return False
+        return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
+    
+    #========= GUI handlers for command args and properties ==============
+    
     def arg_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip:str
+            mtype: gom.meta_types.OGF.MetaType, tooltip
     ):
         """ Handles the GUI for a parameter """
+        if tooltip == None:
+            tooltip = ''
         if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
             AutoGUI.enum_handler(o, property_name, mtype, tooltip)
             return
@@ -66,7 +170,7 @@ class AutoGUI:
 
     def bool_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: gom.meta_types.bool, tooltip: str
     ):
         """ Handles the GUI for a boolean parameter """
         ps.imgui.PushItemWidth(-1)
@@ -113,7 +217,7 @@ class AutoGUI:
 
     def OGF__MeshGrobName_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: gom.meta_types.OGF.MeshGrobName, tooltip: str
     ):
         """ Handles the GUI for a MeshGrobName parameter """
         values = gom.get_environment_value('OGF::MeshGrob_instances')
@@ -121,7 +225,7 @@ class AutoGUI:
 
     def OGF__GrobClassName_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: gom.meta_types.OGF.GrobClassName, tooltip: str
     ):
         """ Handles the GUI for a GrobClassName parameter """
         values = gom.get_environment_value('grob_types')
@@ -129,7 +233,7 @@ class AutoGUI:
 
     def enum_handler(
             o: object, property_name: str,
-            menum: gom.meta_types.OGF.MetaTypes, tooltip: str
+            menum: gom.meta_types.OGF.MetaEnum, tooltip: str
     ):
         """ Handles the GUI for an enum parameter """
         values = ''
@@ -141,7 +245,7 @@ class AutoGUI:
 
     def combo_box(
             o: object, property_name: str,
-            values: gom.meta_types.OGF.MetaTypes, tooltip: str
+            values: str, tooltip: str
     ):
         """ Handles the GUI with a combobox, 
             given the possible values in a ';'-separated string """
@@ -171,7 +275,7 @@ class AutoGUI:
         """ Draws the label of a parameter, 
             and a tooltip if help is available in meta info """
         ps.imgui.Text(property_name.replace('_',' '))
-        if tooltip != None and ps.imgui.IsItemHovered():
+        if tooltip != '' and ps.imgui.IsItemHovered():
             ps.imgui.SetTooltip(tooltip)
 
 #=========================================================================
@@ -498,9 +602,6 @@ class GraphiteApp:
     def draw_command(self):
         """ Draws the GUI for the current Graphite command """
         if self.request != None:
-            ps.imgui.Text(
-                'Command: ' + self.request.method().name.replace('_',' ')
-            )
             grob = self.get_grob(self.request)
             if grob.meta_class.name == 'OGF::SceneGraph':
                 objname = 'scene_graph'
@@ -509,59 +610,8 @@ class GraphiteApp:
                                 self.scene_graph.current().name )
             else:
                 objname = grob.name
-                
             ps.imgui.Text('Object: ' + objname)
-            if (ps.imgui.IsItemHovered() and
-                self.request.method().has_custom_attribute('help')):
-                ps.imgui.SetTooltip(
-                    self.request.method().custom_attribute_value('help')
-                )
-            mmethod = self.request.method()
-            if mmethod.nb_args() != 0:
-                nb_standard_args = 0
-                has_advanced_args = False
-                for i in range(mmethod.nb_args()):
-                    if self.ith_arg_is_advanced(i):
-                        has_advanced_args = True
-                    else:
-                        nb_standard_args = nb_standard_args + 1
-                height = 25 + nb_standard_args * 25
-                if has_advanced_args:
-                    height = height + 25
-                ps.imgui.BeginListBox('##Command',[-1,height])
-                ps.imgui.Spacing()
-                ps.imgui.Spacing()
-                for i in range(mmethod.nb_args()):
-                    tooltip = None
-                    if not self.ith_arg_is_advanced(i):
-                        if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                            tooltip = \
-                                 mmethod.ith_arg_custom_attribute_value(i,'help')
-                        AutoGUI.arg_handler(
-                            self.args,
-                            mmethod.ith_arg_name(i),
-                            mmethod.ith_arg_type(i), tooltip
-                        )
-                if has_advanced_args:
-                    if ps.imgui.TreeNode(
-                            'Advanced'+'##'+objname+'.'+mmethod.name
-                    ):
-                        ps.imgui.TreePop()
-                        for i in range(mmethod.nb_args()):
-                            tooltip = None
-                            if self.ith_arg_is_advanced(i):
-                                if mmethod.ith_arg_has_custom_attribute(
-                                        i,'help'
-                                ):
-                                    tooltip = \
-                                        mmethod.ith_arg_custom_attribute_value(
-                                            i,'help'
-                                        )
-                                self.arg_handler(
-                                    mmethod.ith_arg_name(i),
-                                    mmethod.ith_arg_type(i), tooltip
-                                )
-                ps.imgui.EndListBox()
+            AutoGUI.handle_command(self.request, self.args)
             if ps.imgui.Button('OK'):
                 self.queued_execute_command = True
                 self.queued_close_command = True
@@ -644,40 +694,7 @@ class GraphiteApp:
     def set_command(self, request):
         """ Sets current Graphite command, edited in the GUI """
         self.request = request
-        self.args = ArgList()
-        mmethod = self.request.method()
-        # This additional arg makes the command display more information
-        # in the terminal. It is not set for methods declared in Python
-        # that need to have the exact same number of args.
-        if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
-            self.args['invoked_from_gui'] = True
-        # Initialize arguments, get default values as string, convert them to
-        # correct type.
-        for i in range(mmethod.nb_args()):
-            val = ''
-            if mmethod.ith_arg_has_default_value(i):
-                val = mmethod.ith_arg_default_value_as_string(i)
-            mtype = mmethod.ith_arg_type(i)
-            if mtype.is_a(gom.meta_types.bool):
-                if val == '':
-                    val = False
-                else:
-                    val = (val == 'true' or val == 'True')
-            elif (
-                mtype.is_a(gom.meta_types.int) or
-                mtype.is_a(gom.meta_types.OGF.index_t) or
-                mtype.name == 'unsigned int'
-            ):
-                if val == '':
-                    val = 0
-                else:
-                    val = int(val)
-            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.float):
-                if val == '':
-                    val = 0.0
-                else:
-                    val = float(val)
-            self.args[mmethod.ith_arg_name(i)] = val
+        self.args = AutoGUI.init_command_args(request)
 
     def reset_command(self):
         """ Resets current Graphite command """
@@ -806,15 +823,6 @@ class GraphiteApp:
         ):
             ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
     
-
-    #===== Low-level GUI, handlers for arguments based on type ==================
-            
-    def ith_arg_is_advanced(self, i):
-        mmethod = self.request.method()
-        if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
-           return False
-        return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
-        
     # ===== Python - GOM interop ===============================
 
     def register_enum(self, name, values):
