@@ -31,18 +31,9 @@ class ArgList(dict):
         return super().__dir__() + [str(k) for k in self.keys()]
     
 #=========================================================================
-# The structure of the object's menu is deduced from the declared
-# Commands classes and the potential "menu" attribute attached to
-# each individual command.
-# The function get_menu_map() traverses all Commands classes,
-# and creates a tree structure (stored in nested dictionaries).
-# It is called once at application startup.
-# The function handle_menu_GUI() draws the menu hierarchy, and
-# returns a Request if one of the entries was selected.
 
 class MenuMap:
-    
-    """ Handles themenu hierarchy associated with a grob """
+    """ Handles the menu hierarchy associated with a grob """
     def __init__(self, grob_meta_class : gom.meta_types.OGF.MetaClass):
         self.root = dict()
         grob_class_name = grob_meta_class.name
@@ -86,17 +77,17 @@ class MenuMap:
                     ):
                         self.insert(self.root, menu_name, mslot)   
 
-    def handle_GUI(
+    def draw_menus(
             self, o : gom.meta_types.OGF.Object, menudict : dict = None
     ) -> gom.meta_types.OGF.Request:
-        """ Draws and handles the menus stored in a menumap """
+        """ Draws the menus stored in a menumap """
         if menudict == None:
             menudict = self.root
         result = None
         for k,v in menudict.items():
             if isinstance(v,dict):
                 if ps.imgui.BeginMenu(k.replace('_',' ')):
-                    submenu_result = self.handle_GUI(o,v)
+                    submenu_result = self.draw_menus(o,v)
                     if submenu_result != None:
                         result = submenu_result
                     ps.imgui.EndMenu()
@@ -115,8 +106,7 @@ class MenuMap:
             menu_dict : dict, menu_name : str,
             mslot : gom.meta_types.OGF.MetaSlot
     ) :
-        
-        """ Inserts an entry in a menumap, used by get_menu_map() """
+        """ Inserts an entry in the menumap """
         if menu_name == '':
             menu_dict[mslot.name] = mslot
         else:
@@ -135,7 +125,7 @@ class AutoGUI:
     
     #========= GUI handlers for commands =================================
     
-    def handle_command_GUI(request : gom.meta_types.OGF.Request, args : ArgList):
+    def draw_command(request : gom.meta_types.OGF.Request, args : ArgList):
         """ Handles the GUI for a Graphite command """
         ps.imgui.Text(
             'Command: ' + request.method().name.replace('_',' ')
@@ -227,6 +217,8 @@ class AutoGUI:
             args[mmethod.ith_arg_name(i)] = val
         return args
 
+    #========================================================================
+    
     def ith_arg_is_advanced(mmethod: gom.meta_types.OGF.MetaMethod, i: int):
         """ Tests whether an argument of a method is declared as advanced """
         if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
@@ -420,7 +412,7 @@ class GraphiteApp:
     def __init__(self):
         self.running = False
         
-        self.menu_map = None
+        self.menu_maps = {}
         self.reset_command()
         self.queued_execute_command = False # command execution is queued, for 
         self.queued_close_command   = False # making it happen out off ps CB
@@ -455,7 +447,6 @@ class GraphiteApp:
     #====== Main application loop ==========================================
     
     def run(self,args):
-        self.menu_map = MenuMap(gom.meta_types.OGF.MeshGrob)
         for f in args[1:]:
             self.scene_graph.load_object(f)
 
@@ -666,7 +657,7 @@ class GraphiteApp:
                 )
                     
             ps.imgui.Separator() 
-            request = self.menu_map.handle_GUI(object)
+            request = self.get_menu_map(object).draw_menus(object)
             if request != None:
                 self.set_command(request)
             ps.imgui.EndPopup()
@@ -711,7 +702,7 @@ class GraphiteApp:
             else:
                 objname = grob.name
             ps.imgui.Text('Object: ' + objname)
-            AutoGUI.handle_command_GUI(self.request, self.args)
+            AutoGUI.draw_command(self.request, self.args)
             if ps.imgui.Button('OK'):
                 self.queued_execute_command = True
                 self.queued_close_command = True
@@ -788,7 +779,12 @@ class GraphiteApp:
             return object.grob
         else:
             return object
-                
+
+    def get_menu_map(self, grob):
+        if not grob.name in self.menu_maps:
+            self.menu_maps[grob.name] = MenuMap(grob.meta_class)
+        return self.menu_maps[grob.name]
+        
     #===== Commands management ==============================================
 
     def set_command(self, request):
@@ -913,6 +909,8 @@ class GraphiteApp:
     def register_graphite_object(self,objname,attribute_to_show=None):
         o = self.scene_graph.resolve(objname)
         E = o.I.Editor
+        if E == None:
+            return
         structure = None
         pts = np.asarray(E.get_points())
         if E.nb_facets == 0 and E.nb_cells == 0:
