@@ -31,24 +31,20 @@ class ArgList(dict):
         return super().__dir__() + [str(k) for k in self.keys()]
     
 #=========================================================================
+# The structure of the object's menu is deduced from the declared
+# Commands classes and the potential "menu" attribute attached to
+# each individual command.
+# The function get_menu_map() traverses all Commands classes,
+# and creates a tree structure (stored in nested dictionaries).
+# It is called once at application startup.
+# The function handle_menu_GUI() draws the menu hierarchy, and
+# returns a Request if one of the entries was selected.
 
-class AutoGUI:
-    """ Functions to generate the GUI from GOM meta-information """
-
-    #========= MenuMap ==============================================
-
-    # The structure of the object's menu is deduced from the declared
-    # Commands classes and the potential "menu" attribute attached to
-    # each individual command.
-    # The function get_menu_map() traverses all Commands classes,
-    # and creates a tree structure (stored in nested dictionaries).
-    # It is called once at application startup.
-    # The function handle_menu_GUI() draws the menu hierarchy, and
-    # returns a Request if one of the entries was selected.
-
-    def get_menu_map(grob_meta_class : gom.meta_types.OGF.MetaClass) -> dict:
-        """ Builds a menumap for a grob meta class """
-        result = dict()
+class MenuMap:
+    
+    """ Handles themenu hierarchy associated with a grob """
+    def __init__(self, grob_meta_class : gom.meta_types.OGF.MetaClass):
+        self.root = dict()
         grob_class_name = grob_meta_class.name
         commands_str = gom.get_environment_value(grob_class_name + '_commands')
         for command_class_name in commands_str.split(';'):
@@ -88,19 +84,21 @@ class AutoGUI:
                             and
                         gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
                     ):
-                        AutoGUI.menu_map_insert(result, menu_name, mslot)   
-        return result
+                        self.insert(self.root, menu_name, mslot)   
 
-
-    def handle_menumap_GUI(
-            menudict : dict, o : gom.meta_types.Object
-    ) -> gom.meta_types.Request:
+    def handle_GUI(
+            self, o : gom.meta_types.OGF.Object, menudict : dict = None
+    ) -> gom.meta_types.OGF.Request:
         """ Draws and handles the menus stored in a menumap """
+        if menudict == None:
+            menudict = self.root
         result = None
         for k,v in menudict.items():
             if isinstance(v,dict):
                 if ps.imgui.BeginMenu(k.replace('_',' ')):
-                    self.draw_menumap(v,o)
+                    submenu_result = self.handle_GUI(o,v)
+                    if submenu_result != None:
+                        result = submenu_result
                     ps.imgui.EndMenu()
             else:
                 mslot = v
@@ -111,8 +109,9 @@ class AutoGUI:
                     mslot.has_custom_attribute('help')):
                     ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
         return result
-    
-    def menu_map_insert(
+
+    def insert(
+            self,
             menu_dict : dict, menu_name : str,
             mslot : gom.meta_types.OGF.MetaSlot
     ) :
@@ -127,12 +126,16 @@ class AutoGUI:
                 menu_dict[k] = dict()
             menu_name = menu_name.removeprefix(k)
             menu_name = menu_name.removeprefix('/')
-            AutoGUI.menu_map_insert(menu_dict[k], menu_name, mslot)
-    
+            self.insert(menu_dict[k], menu_name, mslot)
+        
+#=========================================================================
+
+class AutoGUI:
+    """ Functions to generate the GUI from GOM meta-information """
     
     #========= GUI handlers for commands =================================
     
-    def handle_command(request : gom.meta_types.OGF.Request, args : ArgList):
+    def handle_command_GUI(request : gom.meta_types.OGF.Request, args : ArgList):
         """ Handles the GUI for a Graphite command """
         ps.imgui.Text(
             'Command: ' + request.method().name.replace('_',' ')
@@ -417,7 +420,7 @@ class GraphiteApp:
     def __init__(self):
         self.running = False
         
-        self.menu_map = {}            # dictionary tree that represents menus
+        self.menu_map = None
         self.reset_command()
         self.queued_execute_command = False # command execution is queued, for 
         self.queued_close_command   = False # making it happen out off ps CB
@@ -452,7 +455,7 @@ class GraphiteApp:
     #====== Main application loop ==========================================
     
     def run(self,args):
-        self.menu_map = self.menu_map_build(gom.meta_types.OGF.MeshGrob)
+        self.menu_map = MenuMap(gom.meta_types.OGF.MeshGrob)
         for f in args[1:]:
             self.scene_graph.load_object(f)
 
@@ -663,7 +666,9 @@ class GraphiteApp:
                 )
                     
             ps.imgui.Separator() 
-            self.draw_menumap(self.menu_map,object)
+            request = self.menu_map.handle_GUI(object)
+            if request != None:
+                self.set_command(request)
             ps.imgui.EndPopup()
 
     def draw_object_buttons(self, object):
@@ -706,7 +711,7 @@ class GraphiteApp:
             else:
                 objname = grob.name
             ps.imgui.Text('Object: ' + objname)
-            AutoGUI.handle_command(self.request, self.args)
+            AutoGUI.handle_command_GUI(self.request, self.args)
             if ps.imgui.Button('OK'):
                 self.queued_execute_command = True
                 self.queued_close_command = True
@@ -799,94 +804,7 @@ class GraphiteApp:
     def invoke_command(self):
         """ Invokes current Graphite command with the args entered in the GUI """
         self.request(**self.args) #**: expand dict as keywords func call
-
-    #===== MenuMap ===========================================================
-
-    # The structure of the object's menu is deduced from the declared
-    # Commands classes and the potential "menu" attribute attached to
-    # each individual command.
-    # The function menu_map_build() traverses all Commands classes,
-    # and creates a tree structure (stored in nested dictionaries).
-    # It is called once at application startup.
-    # The function draw_menu_map() draws the menu hierarchy, and
-    # initializes a command when it is selected.
-    
-    def menu_map_insert(self, menu_dict, menu_name, mslot):
-        """ Inserts an entry in a menumap """
-        if menu_name == '':
-            menu_dict[mslot.name] = mslot
-        else:
-            # get leading path component
-            k = menu_name[0:(menu_name+'/').find('/')]
-            if k not in menu_dict:
-                menu_dict[k] = dict()
-            menu_name = menu_name.removeprefix(k)
-            menu_name = menu_name.removeprefix('/')
-            self.menu_map_insert(menu_dict[k], menu_name, mslot)
-
-    def menu_map_build(self,grob_meta_class):
-        """ Builds a menumap for a grob meta class """
-        result = dict()
-        grob_class_name = grob_meta_class.name
-        commands_str = gom.get_environment_value(grob_class_name + '_commands')
-        for command_class_name in commands_str.split(';'):
-            # skipped, already in context menu
-            if command_class_name != 'OGF::SceneGraphSceneCommands': 
-                default_menu_name = command_class_name
-                mclass = gom.resolve_meta_type(command_class_name)
-                # Command may be associated with a base class, so we find
-	        # the name of this base class in the 'grob_class_name' attribute
-	        # of the Command and strip it to generate the menu name.
-                default_menu_name = default_menu_name.removeprefix(
-	            mclass.custom_attribute_value('grob_class_name')
-	        )
-                default_menu_name = default_menu_name.removesuffix('Commands')
-                for i in range(mclass.nb_slots()):
-                    mslot = mclass.ith_slot(i)
-                    menu_name = default_menu_name
-                    if(mslot.has_custom_attribute('menu')):
-                       submenu_name = mslot.custom_attribute_value('menu')
-                       submenu_name.removesuffix('/')
-                       if submenu_name[0] == '/':
-                          menu_name = submenu_name[1:]
-                          # Comment for Graphite (not relevant here, but kept):
-                          # Particular case: SceneGraph commands starting
-                          # with '/', to be rooted in the menu bar,
-                          # are stored in the '/menubar' menumap
-                          # (and handled with specific code in
-                          #  graphite_gui.draw_menu_bar())
-                          if grob_meta_class.name == 'OGF::SceneGraph':
-                             menu_name = 'menubar/'+menu_name
-                       else:
-                          menu_name = menu_name + '/' + submenu_name
-                    # Skip Object and Node functions, we don't want them to
-                    # appear in the GUI
-                    if (
-                        gom.meta_types.OGF.Object.find_member(mslot.name)==None
-                            and
-                        gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
-                    ):
-                        self.menu_map_insert(result, menu_name, mslot)   
-        return result
-    
-    def draw_menumap(self,menudict,o):
-        """ Draws and handles the menus stored in a menumap """
-        for k,v in menudict.items():
-            if isinstance(v,dict):
-                if ps.imgui.BeginMenu(k.replace('_',' ')):
-                    self.draw_menumap(v,o)
-                    ps.imgui.EndMenu()
-            else:
-                mslot = v
-                mclass = mslot.container_meta_class()
-                if ps.imgui.MenuItem(k.replace('_',' ')):
-                    self.set_command(
-                        getattr(o.query_interface(mclass.name),mslot.name)
-                    )
-                if (ps.imgui.IsItemHovered() and
-                    mslot.has_custom_attribute('help')):
-                    ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
-
+        
     #===== Other menus from metainformation =================================
                     
     def draw_object_commands_menus(self,o):
