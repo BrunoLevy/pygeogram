@@ -11,25 +11,16 @@
 #  - Highlight selected
 #  - cleaner scene-graph commands
 #  - load object crashes
+
 import polyscope as ps
 import numpy as np
 import gompy
 import math,sys,time
 import typing
 
-#=========================================================================
+OGF = gom.meta_types.OGF
+imgui = ps.imgui
 
-class ArgList(dict):
-    """ A dictionary with attribute-like access """
-    def __getattr__(self, key):
-        return self[key]
-    
-    def __setattr__(self, key, value):
-        self[key] = value
-
-    def __dir__(self):
-        return super().__dir__() + [str(k) for k in self.keys()]
-    
 #=========================================================================
 
 class MenuMap:
@@ -71,40 +62,41 @@ class MenuMap:
                     # Skip Object and Node functions, we don't want them to
                     # appear in the GUI
                     if (
-                        gom.meta_types.OGF.Object.find_member(mslot.name)==None
+                        OGF.Object.find_member(mslot.name)==None
                             and
-                        gom.meta_types.OGF.Node.find_member(mslot.name)  ==None
+                        OGF.Node.find_member(mslot.name)  ==None
                     ):
                         self.insert(self.root, menu_name, mslot)   
 
     def draw_menus(
-            self, o : gom.meta_types.OGF.Object, menudict : dict = None
-    ) -> gom.meta_types.OGF.Request:
-        """ Draws the menus stored in a menumap """
+            self, o : OGF.Object, menudict : dict = None
+    ) -> OGF.Request:
+        """ Draws the menus stored in a menumap, 
+            Returns a request if a menu item was selected """
         if menudict == None:
             menudict = self.root
         result = None
         for k,v in menudict.items():
             if isinstance(v,dict):
-                if ps.imgui.BeginMenu(k.replace('_',' ')):
+                if imgui.BeginMenu(k.replace('_',' ')):
                     submenu_result = self.draw_menus(o,v)
                     if submenu_result != None:
                         result = submenu_result
-                    ps.imgui.EndMenu()
+                    imgui.EndMenu()
             else:
                 mslot = v
                 mclass = mslot.container_meta_class()
-                if ps.imgui.MenuItem(k.replace('_',' ')):
+                if imgui.MenuItem(k.replace('_',' ')):
                     result = getattr(o.query_interface(mclass.name),mslot.name)
-                if (ps.imgui.IsItemHovered() and
+                if (imgui.IsItemHovered() and
                     mslot.has_custom_attribute('help')):
-                    ps.imgui.SetTooltip(mslot.custom_attribute_value('help'))
+                    imgui.SetTooltip(mslot.custom_attribute_value('help'))
         return result
 
     def insert(
             self,
             menu_dict : dict, menu_name : str,
-            mslot : gom.meta_types.OGF.MetaSlot
+            mslot : OGF.MetaSlot
     ) :
         """ Inserts an entry in the menumap """
         if menu_name == '':
@@ -120,19 +112,32 @@ class MenuMap:
         
 #=========================================================================
 
+class ArgList(dict):
+    """ A dictionary with attribute-like access """
+    def __getattr__(self, key):
+        return self[key]
+    
+    def __setattr__(self, key, value):
+        self[key] = value
+
+    def __dir__(self):
+        return super().__dir__() + [str(k) for k in self.keys()]
+    
+#=========================================================================
+
 class AutoGUI:
     """ Functions to generate the GUI from GOM meta-information """
     
     #========= GUI handlers for commands =================================
     
-    def draw_command(request : gom.meta_types.OGF.Request, args : ArgList):
+    def draw_command(request : OGF.Request, args : ArgList):
         """ Handles the GUI for a Graphite command """
-        ps.imgui.Text(
+        imgui.Text(
             'Command: ' + request.method().name.replace('_',' ')
         )
-        if (ps.imgui.IsItemHovered() and
+        if (imgui.IsItemHovered() and
             request.method().has_custom_attribute('help')):
-            ps.imgui.SetTooltip(
+            imgui.SetTooltip(
                 request.method().custom_attribute_value('help')
             )
 
@@ -148,9 +153,9 @@ class AutoGUI:
             height = 25 + nb_standard_args * 25
             if has_advanced_args:
                 height = height + 25
-            ps.imgui.BeginListBox('##Command',[-1,height])
-            ps.imgui.Spacing()
-            ps.imgui.Spacing()
+            imgui.BeginListBox('##Command',[-1,height])
+            imgui.Spacing()
+            imgui.Spacing()
             for i in range(mmethod.nb_args()):
                 if not AutoGUI.ith_arg_is_advanced(mmethod,i):
                     tooltip = None
@@ -161,10 +166,10 @@ class AutoGUI:
                         mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
                     )
             if has_advanced_args:
-                if ps.imgui.TreeNode(
+                if imgui.TreeNode(
                         'Advanced'+'##'+str(request.object())+'.'+mmethod.name
                 ):
-                    ps.imgui.TreePop()
+                    imgui.TreePop()
                     for i in range(mmethod.nb_args()):
                         if AutoGUI.ith_arg_is_advanced(mmethod,i):
                             tooltip = None
@@ -177,16 +182,16 @@ class AutoGUI:
                                 mmethod.ith_arg_name(i),
                                 mmethod.ith_arg_type(i), tooltip
                             )
-            ps.imgui.EndListBox()
+            imgui.EndListBox()
 
-    def init_command_args(request : gom.meta_types.OGF.Request) -> ArgList:
+    def init_command_args(request : OGF.Request) -> ArgList:
         """ Initializes an ArgList with command arguments """
         args = ArgList()
         mmethod = request.method()
         # This additional arg makes the command display more information
         # in the terminal. It is not set for methods declared in Python
         # that need to have the exact same number of args.
-        if not mmethod.meta_class.is_a(gom.meta_types.OGF.DynamicMetaSlot):
+        if not mmethod.meta_class.is_a(OGF.DynamicMetaSlot):
             args['invoked_from_gui'] = True
         # Initialize arguments, get default values as string, convert them to
         # correct type.
@@ -202,7 +207,7 @@ class AutoGUI:
                     val = (val == 'true' or val == 'True')
             elif (
                 mtype.is_a(gom.meta_types.int) or
-                mtype.is_a(gom.meta_types.OGF.index_t) or
+                mtype.is_a(OGF.index_t) or
                 mtype.name == 'unsigned int'
             ):
                 if val == '':
@@ -219,7 +224,9 @@ class AutoGUI:
 
     #========================================================================
     
-    def ith_arg_is_advanced(mmethod: gom.meta_types.OGF.MetaMethod, i: int):
+    def ith_arg_is_advanced(
+            mmethod: OGF.MetaMethod, i: int
+    ) -> bool:
         """ Tests whether an argument of a method is declared as advanced """
         if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
            return False
@@ -229,12 +236,12 @@ class AutoGUI:
     
     def arg_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip
+            mtype: OGF.MetaType, tooltip
     ):
         """ Handles the GUI for a parameter """
         if tooltip == None:
             tooltip = ''
-        if mtype.meta_class.is_a(gom.meta_types.OGF.MetaEnum):
+        if mtype.meta_class.is_a(OGF.MetaEnum):
             AutoGUI.enum_handler(o, property_name, mtype, tooltip)
             return
         handler_name = mtype.name.replace(' ','_').replace(':','_') + '_handler'
@@ -245,17 +252,17 @@ class AutoGUI:
         
     def string_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: OGF.MetaType, tooltip: str
     ):
         """ Handles the GUI for a string parameter """
         AutoGUI.label(property_name, tooltip)        
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
         val = getattr(o,property_name)
-        _,val = ps.imgui.InputText(
+        _,val = imgui.InputText(
             '##properties##' + property_name, val
         )
-        ps.imgui.PopItemWidth()
+        imgui.PopItemWidth()
         setattr(o,property_name,val)
 
     def bool_handler(
@@ -263,51 +270,51 @@ class AutoGUI:
             mtype: gom.meta_types.bool, tooltip: str
     ):
         """ Handles the GUI for a boolean parameter """
-        ps.imgui.PushItemWidth(-1)
+        imgui.PushItemWidth(-1)
         val = getattr(o,property_name)
-        _,val = ps.imgui.Checkbox(
+        _,val = imgui.Checkbox(
             property_name.replace('_',' '), val
         )
-        if tooltip != None and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
-        ps.imgui.PopItemWidth()
+        if tooltip != None and imgui.IsItemHovered():
+            imgui.SetTooltip(tooltip)
+        imgui.PopItemWidth()
         setattr(o,property_name,val)
 
     def int_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: OGF.MetaType, tooltip: str
     ):
         """ Handles the GUI for an integer parameter """
         AutoGUI.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
         val = getattr(o,property_name)
-        _,val = ps.imgui.InputInt(
+        _,val = imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
-        ps.imgui.PopItemWidth()
+        imgui.PopItemWidth()
         setattr(o,property_name,val)
 
     def unsigned_int_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MetaType, tooltip: str
+            mtype: OGF.MetaType, tooltip: str
     ):
         """ Handles the GUI for an unsigned integer parameter """
         AutoGUI.label(property_name, tooltip)
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
         val = getattr(o,property_name)
         if val < 0:
             val = 0
-        _,val = ps.imgui.InputInt(
+        _,val = imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
-        ps.imgui.PopItemWidth()
+        imgui.PopItemWidth()
         setattr(o,property_name,val)
 
     def OGF__MeshGrobName_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.MeshGrobName, tooltip: str
+            mtype: OGF.MeshGrobName, tooltip: str
     ):
         """ Handles the GUI for a MeshGrobName parameter """
         values = gom.get_environment_value('OGF::MeshGrob_instances')
@@ -315,7 +322,7 @@ class AutoGUI:
 
     def OGF__GrobClassName_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.OGF.GrobClassName, tooltip: str
+            mtype: OGF.GrobClassName, tooltip: str
     ):
         """ Handles the GUI for a GrobClassName parameter """
         values = gom.get_environment_value('grob_types')
@@ -323,7 +330,7 @@ class AutoGUI:
 
     def enum_handler(
             o: object, property_name: str,
-            menum: gom.meta_types.OGF.MetaEnum, tooltip: str
+            menum: OGF.MetaEnum, tooltip: str
     ):
         """ Handles the GUI for an enum parameter """
         values = ''
@@ -353,20 +360,20 @@ class AutoGUI:
         except:
             found = False
             old_index = 0
-        ps.imgui.SameLine()
-        ps.imgui.PushItemWidth(-20)
-        _,new_index = ps.imgui.Combo(
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
+        _,new_index = imgui.Combo(
             '##properties##'+property_name, old_index, values
         )
-        ps.imgui.PopItemWidth()
+        imgui.PopItemWidth()
         setattr(o,property_name,values[new_index])
 
     def label(property_name: str, tooltip: str):
         """ Draws the label of a parameter, 
             and a tooltip if help is available in meta info """
-        ps.imgui.Text(property_name.replace('_',' '))
-        if tooltip != '' and ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip(tooltip)
+        imgui.Text(property_name.replace('_',' '))
+        if tooltip != '' and imgui.IsItemHovered():
+            imgui.SetTooltip(tooltip)
 
 #=========================================================================
 
@@ -374,7 +381,7 @@ class PyAutoGUI:
     """ Python-AutoGUI interop """
 
     def register_enum(name: str, values: list):
-        menum = gom.meta_types.OGF.MetaEnum.create(name)
+        menum = OGF.MetaEnum.create(name)
         index = 0
         for value in values:
             menum.add_value(value, index)
@@ -383,8 +390,9 @@ class PyAutoGUI:
         return menum
     
     def register_commands(
-            scene_graph: gom.meta_types.OGF.SceneGraph,
-            grobclass: gom.meta_types.OGF.MetaClass, methodsclass
+            scene_graph: OGF.SceneGraph,
+            grobclass: OGF.MetaClass,
+            methodsclass: type
     ):
         baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
         mclass = baseclass.create_subclass(
@@ -401,7 +409,7 @@ class PyAutoGUI:
         scene_graph.register_grob_commands(grobclass,mclass)
         return mclass
 
-    def register_command(mclass: gom.meta_types.OGF.MetaClass, pyfunc):
+    def register_command(mclass: OGF.MetaClass, pyfunc: callable):
         # small table to translate standard Python types into
         # GOM metatypes
         python2gom = {
@@ -423,7 +431,10 @@ class PyAutoGUI:
         PyAutoGUI.parse_doc(mslot,pyfunc)
         return mslot
     
-    def parse_doc(mslot, pyfunc):
+    def parse_doc(mslot: OGF.MetaSlot, pyfunc: callable):
+        """ parses the docstring of a python callable 
+            and uses it to document a GOM MetaSlot """
+
         if pyfunc.__doc__ == None:
             return 
         for line in pyfunc.__doc__.split('\n'):
@@ -431,6 +442,9 @@ class PyAutoGUI:
                 kw,val = line.split(maxsplit=1)
                 kw = kw[1:] # remove leading '@'
                 if kw == 'param[in]':
+                    # get default value from docstring (I'd prefer to get
+                    # it from function's signature but it does not seems
+                    # to be possible in Python)
                     eqpos = val.find('=')
                     if eqpos == -1:
                         argname,argdoc = val.split(maxsplit=1)
@@ -445,7 +459,169 @@ class PyAutoGUI:
                     mslot.set_custom_attribute(kw, val)
             except:
                 None
+
+#==== low-level object access =============================================
+
+class MeshGrobOps:
+    def get_object_bbox(o):
+        vertices = np.asarray(o.I.Editor.get_points())
+        pmin=np.array(
+            [np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])]
+        )
+        pmax=np.array(
+            [np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])]
+        )
+        return pmin, pmax
+
+    def get_object_center(o):
+        pmin,pmax = MeshGrobOps.get_object_bbox(o)
+        return 0.5*(pmin+pmax)
+                
+    def translate_object(o, T):
+        vertices = np.asarray(o.I.Editor.get_points())
+        vertices[:,0] = vertices[:,0] + T[0] 
+        vertices[:,1] = vertices[:,1] + T[1] 
+        vertices[:,2] = vertices[:,2] + T[2] 
+
+    def transform_object(o, xform):
+        """ Applies a 4x4 homogeneous coord transform to object's vertices """
+        # if xform is identity, nothing to do
+        if np.allclose(xform,np.eye(4)):
+            return
+        object_vertices = np.asarray(o.I.Editor.get_points())
+        vertices = np.c_[  # add a column of 1
+            object_vertices, np.ones(object_vertices.shape[0])
+        ]
+        # transform all the vertices
+        vertices = np.matmul(vertices,np.transpose(xform))
+        weights  = vertices[:,-1]                 # get 4th column
+        weights  = weights[:,np.newaxis]          # make it a Nx1 matrix
+        vertices = vertices[:,:-1]                # get the x,y,z coords
+        vertices = vertices/weights               # divide the x,y,z coords by w
+        # Could be written also in 1 line only (but less legible I think):
+        #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
+        np.copyto(object_vertices,vertices)       # inject into graphite object
+
+#==== PolyScope display for Graphite objects ==============================
+
+class GrobShader:
+    def __init__(self, grob):
+        self.grob = grob
+        # TODO: but it seems I got a recursive handler somewhere,
+        # so for now I update all shaders after each command.
+        # gom.connect(grob.value_changed,self.update)
+
+    def show(self):
+        self.visible = True
+
+    def hide(self):
+        self.visible = False
+
+    def update(self,grob):
+        None
+        
+class MeshGrobShader(GrobShader):
     
+    def __init__(self, o):
+        super().__init__(o)
+        self.structure = None
+        self.create_structures()
+
+    def create_structures(self):
+        o = self.grob
+        E = o.I.Editor
+        pts = np.asarray(E.get_points())[:,0:3] # some meshes are in nD.
+
+        if E.nb_facets == 0 and E.nb_cells == 0:
+            if E.nb_vertices != 0:
+                self.structure = ps.register_point_cloud(o.name,pts)
+        elif E.nb_cells == 0:
+            self.structure = ps.register_surface_mesh(
+                o.name, pts,
+                np.asarray(o.I.Editor.get_triangles())
+            )
+        else:
+            self.structure = ps.register_volume_mesh(
+                o.name, pts,
+                np.asarray(o.I.Editor.get_tetrahedra())
+            )
+
+    def remove_structures(self):
+        if self.structure != None:
+            self.structure.remove()
+        self.structure = None
+            
+    def __del__(self):
+        self.remove_structures()
+
+    def show(self):
+        super().show()
+        self.structure.set_enabled(True)
+
+    def hide(self):
+        super().hide()
+        self.structure.set_enabled(False)
+
+    def update(self,grob):
+        super().update(grob)
+        self.remove_structures()
+        self.create_structures()
+
+    def commit_transform(self):
+        if self.structure == None:
+            return
+        xform = self.structure.get_transform()
+        if not np.allclose(xform,np.eye(4)):
+            MeshGrobOps.transform_object(self.grob,xform)
+        
+class SceneGraphShader(GrobShader):
+    def __init__(self, grob):
+        super().__init__(grob)
+        self.shader_map = {}
+        gom.connect(grob.values_changed, self.update_objects)
+
+    def show(self):
+        self.visible = True
+
+    def hide(self):
+        self.visible = False
+
+    def update(self,grob):
+        None
+
+    def update_objects(self,new_list):
+        old_list = list(self.shader_map.keys())
+        new_list = [] if new_list == '' else new_list.split(';')
+
+        for objname in old_list:
+            if objname not in new_list:
+                self.shader_map[objname].remove_structures()
+                del self.shader_map[objname]
+        
+        for objname in new_list:
+            object = getattr(self.grob.objects, objname)
+            if objname not in self.shader_map:
+                self.shader_map[objname] = MeshGrobShader(object)
+
+    def show_all(self):
+        for shd in self.shader_map.values():
+            shd.show()
+
+    def hide_all(self):
+        for shd in self.shader_map.values():
+            shd.hide()
+
+    def show_only(self, obj):
+        self.hide_all()
+        self.shader_map[obj.name].show()
+
+    def commit_transforms(self):
+        for shd in self.shader_map.values():
+            shd.commit_transform()
+
+    def update_all(self):
+        for shd in self.shader_map.values():
+            shd.update(shd.grob)
 #=========================================================================
 
 class GraphiteApp:
@@ -495,13 +671,12 @@ class GraphiteApp:
         self.queued_execute_command = False # command execution is queued, for 
         self.queued_close_command   = False # making it happen out off ps CB
         
-        self.structure_map = {} # graphite object name -> polyscope structure
-        self.scene_graph = gom.meta_types.OGF.SceneGraph.create()
+        self.scene_graph = OGF.SceneGraph.create()
         
         # create a Graphite ApplicationBase. It has the printing and
         # progress callbacks, that are redirected here to some functions
         # (ending with _CB).
-        application = gom.meta_types.OGF.ApplicationBase.create()
+        application = OGF.ApplicationBase.create()
         self.scene_graph.application = application
 
         # printing callbacks
@@ -520,7 +695,10 @@ class GraphiteApp:
 
         # scene graph edition
         self.rename_old = None
-        self.rename_new   = None
+        self.rename_new = None
+
+        # Shaders
+        self.scene_graph_shader = SceneGraphShader(self.scene_graph)
         
     #====== Main application loop ==========================================
     
@@ -530,12 +708,12 @@ class GraphiteApp:
 
         for objname in dir(self.scene_graph.objects):
             grob = self.scene_graph.resolve(objname)
-            if (grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
+            if (grob.meta_class.is_a(OGF.MeshGrob) and
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
-            
-        self.register_graphite_objects()
+        self.scene_graph_shader.update_all()
+        
         ps.set_open_imgui_window_for_user_callback(False) # we draw our own win
         ps.set_user_callback(self.draw_GUI)
         self.running = True
@@ -557,9 +735,9 @@ class GraphiteApp:
             # were "quiet" (that is, without mouse click
             # or mouse drag)
             if (
-                    ps.imgui.GetIO().MouseDown[0] or
-                    ps.imgui.GetIO().MouseDown[1] or
-                    ps.imgui.GetIO().MouseDown[2]
+                    imgui.GetIO().MouseDown[0] or
+                    imgui.GetIO().MouseDown[1] or
+                    imgui.GetIO().MouseDown[2]
             ):
                 quiet_frames = 0
             else:
@@ -571,21 +749,20 @@ class GraphiteApp:
                 time.sleep(0.05) # petit dodo: 1/20th second
             else:
                 time.sleep(0.01) # micro-sieste: 1/100th second
-        self.unregister_graphite_objects()
         self.scene_graph.clear()
         self.scene_graph.application.stop()
                 
     def draw_GUI(self):
-        ps.imgui.SetNextWindowPos([340,10])
-        ps.imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
-        unfolded,_ = ps.imgui.Begin(
-            'Graphite',True,ps.imgui.ImGuiWindowFlags_MenuBar
+        imgui.SetNextWindowPos([340,10])
+        imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
+        unfolded,_ = imgui.Begin(
+            'Graphite',True,imgui.ImGuiWindowFlags_MenuBar
         )
         if unfolded:
             self.draw_menubar()
             self.draw_scenegraph_GUI()
             self.draw_command()
-        ps.imgui.End()
+        imgui.End()
         self.draw_terminal_window()
         self.draw_progressbar_window()
 
@@ -603,54 +780,52 @@ class GraphiteApp:
                 height = height + 50
             else:
                 self.message_changed_frames = 3 # make tty scroll to end
-            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-210])
-            ps.imgui.SetNextWindowSize([600,height])
-            _,self.show_terminal = ps.imgui.Begin('Terminal',self.show_terminal)
-            ps.imgui.Text(self.message)
+            imgui.SetNextWindowPos([660,ps.get_window_size()[1]-210])
+            imgui.SetNextWindowSize([600,height])
+            _,self.show_terminal = imgui.Begin('Terminal',self.show_terminal)
+            imgui.Text(self.message)
             if self.message_changed_frames > 0:
-                ps.imgui.SetScrollY(ps.imgui.GetScrollMaxY())
+                imgui.SetScrollY(imgui.GetScrollMaxY())
                 self.message_changed_frames = self.message_changed_frames - 1
-            ps.imgui.End()
+            imgui.End()
 
     def draw_progressbar_window(self):
         if self.progress_task != None:
-            ps.imgui.SetNextWindowPos([660,ps.get_window_size()[1]-55])
-            ps.imgui.SetNextWindowSize([600,45])
-            ps.imgui.Begin('Progress',True,ps.imgui.ImGuiWindowFlags_NoTitleBar)
-            if ps.imgui.Button('X'):
+            imgui.SetNextWindowPos([660,ps.get_window_size()[1]-55])
+            imgui.SetNextWindowSize([600,45])
+            imgui.Begin('Progress',True,imgui.ImGuiWindowFlags_NoTitleBar)
+            if imgui.Button('X'):
                 self.scene_graph.application.progress_cancel()
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Cancel task')
-            ps.imgui.SameLine()
-            ps.imgui.Text(self.progress_task)
-            ps.imgui.SameLine()
-            ps.imgui.ProgressBar(self.progress_percent/100.0, [-1,0])
-            ps.imgui.End()
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Cancel task')
+            imgui.SameLine()
+            imgui.Text(self.progress_task)
+            imgui.SameLine()
+            imgui.ProgressBar(self.progress_percent/100.0, [-1,0])
+            imgui.End()
             
     def draw_menubar(self):
-        if ps.imgui.BeginMenuBar():
-            if ps.imgui.BeginMenu('File'):
+        if imgui.BeginMenuBar():
+            if imgui.BeginMenu('File'):
                 self.draw_request_menuitem(self.scene_graph.load_object)
                 self.draw_request_menuitem(self.scene_graph.save)
                 self.draw_object_commands_menus(self.scene_graph)
-                ps.imgui.Separator()           
-                if ps.imgui.MenuItem('show all'):
-                    for objname in dir(self.scene_graph.objects):
-                        self.structure_map[objname].set_enabled(True)
-                if ps.imgui.MenuItem('hide all'):
-                    for objname in dir(self.scene_graph.objects):
-                        self.structure_map[objname].set_enabled(False)
-                ps.imgui.Separator()
-                if ps.imgui.MenuItem('quit'):
+                imgui.Separator()           
+                if imgui.MenuItem('show all'):
+                    self.scene_graph_shader.show_all()
+                if imgui.MenuItem('hide all'):
+                    self.scene_graph_shader.hide_all()
+                imgui.Separator()
+                if imgui.MenuItem('quit'):
                     self.running = False
-                ps.imgui.EndMenu()
-            if ps.imgui.BeginMenu('Windows'):
-                if ps.imgui.MenuItem(
+                imgui.EndMenu()
+            if imgui.BeginMenu('Windows'):
+                if imgui.MenuItem(
                     'show terminal', None, self.show_terminal
                 ):
                     self.show_terminal = not self.show_terminal
-                ps.imgui.EndMenu()
-            ps.imgui.EndMenuBar()
+                imgui.EndMenu()
+            imgui.EndMenuBar()
 
     def draw_scenegraph_GUI(self):
         # Get scene objects, I do that instead of dir(self.scene_graph.objects)
@@ -659,15 +834,15 @@ class GraphiteApp:
         for i in range(self.scene_graph.nb_children):
             objects.append(self.scene_graph.ith_child(i).name)
 
-        ps.imgui.BeginListBox('##Objects',[-1,200])
+        imgui.BeginListBox('##Objects',[-1,200])
         for objname in objects:
             object = getattr(self.scene_graph.objects,objname)        
             self.draw_object_GUI(object)
-        ps.imgui.EndListBox()
+        imgui.EndListBox()
 
     def draw_object_GUI(self, object):
         objname = object.name
-        itemwidth = ps.imgui.GetContentRegionAvail()[0]
+        itemwidth = imgui.GetContentRegionAvail()[0]
         show_buttons = (self.scene_graph.current_object == objname and
                         self.rename_old == None)
 
@@ -676,96 +851,89 @@ class GraphiteApp:
 
         if self.rename_old == objname: # if object is being renamed
             if self.rename_old == self.rename_new:
-                ps.imgui.SetKeyboardFocusHere(0)
-            sel,self.rename_new=ps.imgui.InputText(
+                imgui.SetKeyboardFocusHere(0)
+            sel,self.rename_new=imgui.InputText(
                 'rename##' + objname,self.rename_new,
-                ps.imgui.ImGuiInputTextFlags_EnterReturnsTrue |
-		ps.imgui.ImGuiInputTextFlags_AutoSelectAll
+                imgui.ImGuiInputTextFlags_EnterReturnsTrue |
+		imgui.ImGuiInputTextFlags_AutoSelectAll
             )
             if sel: # <enter> was pressed, rename object
                 if self.rename_old != self.rename_new:
-                    self.unregister_graphite_object(object.name)
                     object.rename(self.rename_new)
                     self.scene_graph.current_object = object.name
-                    self.register_graphite_object(object.name)
                 self.rename_old = None
                 self.rename_new = None
         else: # standard operation (object is not being renamed)
-            sel,_=ps.imgui.Selectable(
+            sel,_=imgui.Selectable(
                 objname, (objname == self.scene_graph.current().name),
-                ps.imgui.ImGuiSelectableFlags_AllowDoubleClick,
+                imgui.ImGuiSelectableFlags_AllowDoubleClick,
                 [itemwidth,0]
             )
             if sel:
                 self.scene_graph.current_object = objname
-                if ps.imgui.IsMouseDoubleClicked(0):
-                    for objname2 in dir(self.scene_graph.objects):
-                        self.structure_map[objname2].set_enabled(
-                            objname2==objname
-                        )
+                if imgui.IsMouseDoubleClicked(0):
+                    self.scene_graph_shader.show_only(object)
 
         self.draw_object_menu(object)
 
         if show_buttons:
-            ps.imgui.SameLine()
+            imgui.SameLine()
             self.draw_object_buttons(object)
         
     def draw_object_menu(self, object):
-        if ps.imgui.BeginPopupContextItem(object.name+'##ops'):
-            if ps.imgui.MenuItem('rename'):
+        if imgui.BeginPopupContextItem(object.name+'##ops'):
+            if imgui.MenuItem('rename'):
                 self.rename_old = object.name
                 self.rename_new = object.name
 
-            if ps.imgui.MenuItem('duplicate'):
+            if imgui.MenuItem('duplicate'):
                 self.scene_graph.current_object = object.name
                 new_object = self.scene_graph.duplicate_current()
-                self.register_graphite_object(new_object.name)
                 self.scene_graph.current_object = new_object.name
                 self.rename_old = new_object.name
                 self.rename_new = new_object.name
                 
-            if ps.imgui.MenuItem('save object'):
+            if imgui.MenuItem('save object'):
                 self.set_command(object.save)
 
-            if ps.imgui.MenuItem('commit transform'):
+            if imgui.MenuItem('commit transform'):
                 self.commit_transform(object)
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip(
+            if imgui.IsItemHovered():
+                imgui.SetTooltip(
                     'transforms vertices according to Polyscope transform guizmo'
                 )
                     
-            ps.imgui.Separator() 
+            imgui.Separator() 
             request = self.get_menu_map(object).draw_menus(object)
             if request != None:
                 self.set_command(request)
-            ps.imgui.EndPopup()
+            imgui.EndPopup()
 
     def draw_object_buttons(self, object):
-        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [0,0])
-        if ps.imgui.ArrowButton('^'+object.name,ps.imgui.ImGuiDir_Up):
+        imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [0,0])
+        if imgui.ArrowButton('^'+object.name,imgui.ImGuiDir_Up):
             self.scene_graph.current_object = object.name
             self.scene_graph.move_current_up()
-        if ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip('Move object up')
-        ps.imgui.SameLine()
-        if ps.imgui.ArrowButton('v'+object.name,ps.imgui.ImGuiDir_Down):
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Move object up')
+        imgui.SameLine()
+        if imgui.ArrowButton('v'+object.name,imgui.ImGuiDir_Down):
             self.scene_graph.current_object = object.name
             self.scene_graph.move_current_down()
-        if ps.imgui.IsItemHovered():
-            ps.imgui.SetTooltip('Move object down')
-        ps.imgui.SameLine()
-        ps.imgui.PushStyleVar(ps.imgui.ImGuiStyleVar_FramePadding, [5,0])
-        if ps.imgui.Button('X'+'##'+object.name):
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Move object down')
+        imgui.SameLine()
+        imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [5,0])
+        if imgui.Button('X'+'##'+object.name):
             if (self.request != None and
                 self.get_grob(self.request).name == object.name):
                 self.reset_command()
-            self.unregister_graphite_object(object.name)                    
             self.scene_graph.current_object = object.name
             self.scene_graph.delete_current_object()
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Delete object')
-            ps.imgui.PopStyleVar()                    
-            ps.imgui.PopStyleVar()
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Delete object')
+            imgui.PopStyleVar()                    
+            imgui.PopStyleVar()
             
             
     def draw_command(self):
@@ -779,28 +947,28 @@ class GraphiteApp:
                                 self.scene_graph.current().name )
             else:
                 objname = grob.name
-            ps.imgui.Text('Object: ' + objname)
+            imgui.Text('Object: ' + objname)
             AutoGUI.draw_command(self.request, self.args)
-            if ps.imgui.Button('OK'):
+            if imgui.Button('OK'):
                 self.queued_execute_command = True
                 self.queued_close_command = True
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Apply and close command')
-            ps.imgui.SameLine()
-            if ps.imgui.Button('Apply'):
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Apply and close command')
+            imgui.SameLine()
+            if imgui.Button('Apply'):
                 self.queued_execute_command = True
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Apply and keep command open')
-            ps.imgui.SameLine()
-            if ps.imgui.Button('Cancel'):
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Apply and keep command open')
+            imgui.SameLine()
+            if imgui.Button('Cancel'):
                 self.reset_command()
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Close command')
-            ps.imgui.SameLine()                
-            if ps.imgui.Button('Reset'):
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Close command')
+            imgui.SameLine()                
+            if imgui.Button('Reset'):
                 self.set_command(self.request)
-            if ps.imgui.IsItemHovered():
-                ps.imgui.SetTooltip('Reset factory settings')
+            if imgui.IsItemHovered():
+                imgui.SetTooltip('Reset factory settings')
 
     # This function is called right after PolyScope has finished rendering
                 
@@ -810,44 +978,25 @@ class GraphiteApp:
             mmethod = self.request.method()
             objects_before_command = dir(self.scene_graph.objects)
 
-            withattrs = hasattr(grob,'list_attributes')
-            oldattrs = {}
-            if withattrs:
-                oldattrs = grob.list_attributes('vertices','double',1).split(';')
-            
-            # Commit all transforms (note: does not cost much when
-            # transforms are identity)
-            for objname in dir(self.scene_graph.objects):
-                obj = self.scene_graph.resolve(objname)
-                self.commit_transform(obj)
-            
+            # Commit all transforms (guizmos)
+            #self.scene_graph_shader.commit_transforms()
+
             self.invoke_command()
+
+            self.scene_graph_shader.update_all()
 
             # Polygonal surfaces not supported for now, so we
             # triangulate
-            if (grob.meta_class.is_a(gom.meta_types.OGF.MeshGrob) and
-                grob.I.Editor.nb_facets != 0):
-                grob.I.Surface.triangulate()
-
-            newattr = None
-            if withattrs:
-                for a in grob.list_attributes('vertices','double',1).split(';'):
-                    if not a in oldattrs:
-                        newattr = a
-                
-            # Unregister all objects that were previously there,
-            # then register all objects
-            if not mmethod.has_custom_attribute('keep_structures'):
-                for objname in objects_before_command:
-                    self.unregister_graphite_object(objname)
-                for objname in dir(self.scene_graph.objects):
-                    structure = self.register_graphite_object(objname,newattr)
+            #if (grob.meta_class.is_a(OGF.MeshGrob) and
+            #    grob.I.Editor.nb_facets != 0):
+            #    grob.I.Surface.triangulate()
                         
             self.queued_execute_command = False
         if self.queued_close_command:
             self.reset_command()
             self.queued_close_command = False
-                
+
+            
     # the closure passed to set_command() may be in the
     # form grob.interface.method or simply grob.method.
     # This function gets the grob in both cases.
@@ -881,141 +1030,34 @@ class GraphiteApp:
         
     #===== Other menus from metainformation =================================
                     
-    def draw_object_commands_menus(self,o):
+    def draw_object_commands_menus(self,o : OGF.Object):
         """ Draws menus for all commands associated with a Graphite object """
         # get all interfaces of the object
         for interface_name in dir(o.I):
             interface = getattr(o.I,interface_name)
             # keep only those that inherit OGF::Commands
-            if interface.meta_class.is_a(gom.meta_types.OGF.Commands):
-                if ps.imgui.BeginMenu(interface_name):
+            if interface.meta_class.is_a(OGF.Commands):
+                if imgui.BeginMenu(interface_name):
                     self.draw_interface_menuitems(interface)
-                    ps.imgui.EndMenu()
+                    imgui.EndMenu()
 
-    def draw_interface_menuitems(self,interface):
+    def draw_interface_menuitems(self, interface : OGF.Interface):
         """ Draw menu items for all slots of an interface """
         mclass = interface.meta_class
         for i in range(mclass.nb_slots()):
             mslot = mclass.ith_slot(i)
-            if not hasattr(gom.meta_types.OGF.Interface,mslot.name):
+            if not hasattr(OGF.Interface,mslot.name):
                 self.draw_request_menuitem(getattr(interface,mslot.name))
 
-    def draw_request_menuitem(self, request):
+    def draw_request_menuitem(self, request : OGF.Request):
         """ Draw a menu item for a given request (that is, a closure) """
-        if ps.imgui.MenuItem(request.method().name.replace('_',' ')):
+        if imgui.MenuItem(request.method().name.replace('_',' ')):
             self.set_command(request)
         if (
-                ps.imgui.IsItemHovered() and
+                imgui.IsItemHovered() and
                 request.method().has_custom_attribute('help')
         ):
-            ps.imgui.SetTooltip(request.method().custom_attribute_value('help'))
-    
-    # ===== Python - GOM interop ===============================
-
-    # ===== Graphite - Polyscope interop =======================
-
-    def register_graphite_object(self,objname,attribute_to_show=None):
-        o = self.scene_graph.resolve(objname)
-        E = o.I.Editor
-        if E == None:
-            return
-        structure = None
-        pts = np.asarray(E.get_points())
-        if E.nb_facets == 0 and E.nb_cells == 0:
-            structure = ps.register_point_cloud(o.name,pts)
-        elif E.nb_cells == 0:
-            structure = ps.register_surface_mesh(
-                o.name, pts,
-                np.asarray(o.I.Editor.get_triangles())
-            )
-        else:
-            structure = ps.register_volume_mesh(
-                o.name, pts,
-                np.asarray(o.I.Editor.get_tetrahedra())
-            )
-        if structure != None:
-            self.structure_map[o.name] = structure
-            for attr in o.list_attributes('vertices','double',1).split(';'):
-                if attr != '':
-                    attrarray = np.asarray(E.find_attribute(attr))
-                    structure.add_scalar_quantity(
-                        attr.removeprefix('vertices.'),
-                        attrarray, enabled=(attr==attribute_to_show)
-                    )
-        return structure
-        
-    def register_graphite_objects(self):
-        for objname in dir(self.scene_graph.objects):
-            self.register_graphite_object(objname)
-
-    def unregister_graphite_object(self,objname):
-        if not objname in self.structure_map:
-            return
-        self.structure_map[objname].remove()
-        del self.structure_map[objname]
-            
-    def unregister_graphite_objects(self):
-        for objname in dir(self.scene_graph.objects):
-            self.unregister_graphite_object(objname)
-
-    def commit_transform(self, o):
-        if not o.name in self.structure_map:
-            return
-        structure = self.structure_map[o.name]
-        xform = structure.get_transform()
-        # if xform is identity, nothing to do
-        if np.allclose(xform,np.eye(4)):
-            return
-        self.transform_object(o,xform)
-        structure.reset_transform() # reset polyscope xform
-        object_vertices = np.asarray(o.I.Editor.get_points())
-        # tell polyscope that vertices have changed
-        if hasattr(structure,'update_vertex_positions'):
-            structure.update_vertex_positions(object_vertices)
-        # for PolyScope pointsets it is a different function
-        if hasattr(structure,'update_point_positions'):
-            structure.update_point_positions(object_vertices)            
-
-    # ===== Some low-level manip based on numpy =======================
-            
-    def get_object_bbox(self, o):
-        vertices = np.asarray(o.I.Editor.get_points())
-        pmin=np.array(
-            [np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])]
-        )
-        pmax=np.array(
-            [np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])]
-        )
-        return pmin, pmax
-
-    def get_object_center(self, o):
-        pmin,pmax = self.get_object_bbox(o)
-        return 0.5*(pmin+pmax)
-                
-    def translate_object(self, o, T):
-        vertices = np.asarray(o.I.Editor.get_points())
-        vertices[:,0] = vertices[:,0] + T[0] 
-        vertices[:,1] = vertices[:,1] + T[1] 
-        vertices[:,2] = vertices[:,2] + T[2] 
-
-    def transform_object(self, o, xform):
-        """ Applies a 4x4 homogeneous coord transform to object's vertices """
-        # if xform is identity, nothing to do
-        if np.allclose(xform,np.eye(4)):
-            return
-        object_vertices = np.asarray(o.I.Editor.get_points())
-        vertices = np.c_[  # add a column of 1
-            object_vertices, np.ones(object_vertices.shape[0])
-        ]
-        # transform all the vertices
-        vertices = np.matmul(vertices,np.transpose(xform))
-        weights  = vertices[:,-1]                 # get 4th column
-        weights  = weights[:,np.newaxis]          # make it a Nx1 matrix
-        vertices = vertices[:,:-1]                # get the x,y,z coords
-        vertices = vertices/weights               # divide the x,y,z coords by w
-        # Could be written also in 1 line only (but less legible I think):
-        #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
-        np.copyto(object_vertices,vertices)       # inject into graphite object
+            imgui.SetTooltip(request.method().custom_attribute_value('help'))
         
 #=====================================================
 # Graphite application
@@ -1047,10 +1089,10 @@ class MeshGrobPolyScopeCommands:
     # Note that Python functions declared to Graphite do not take self as
     #   argument (they are like C++ static class functions)
     def extract_component(
-            interface : gom.meta_types.OGF.Interface,
+            interface : OGF.Interface,
             method    : str,
             attr_name : str,
-            component : gom.meta_types.OGF.index_t
+            component : OGF.index_t
     ):
         # docstring is used to generate the tooltip, menu, and have additional
         # information attached to the "custom attributes" of the MetaMethod.
@@ -1061,22 +1103,24 @@ class MeshGrobPolyScopeCommands:
         @menu /Attributes/Polyscope
         @keep_structures True # see GraphiteApp.handle_queued_command()
         """
-        grob = interface.grob
-        attr_array = np.asarray(
-            grob.I.Editor.find_attribute('vertices.'+attr_name)
-        )
-        attr_array = attr_array[:,component]
-        graphite.structure_map[grob.name].add_scalar_quantity(
-            attr_name+'['+str(component)+']', attr_array
-        )
+        None
+        # TODO ...
+        #grob = interface.grob
+        #attr_array = np.asarray(
+        #    grob.I.Editor.find_attribute('vertices.'+attr_name)
+        #)
+        #attr_array = attr_array[:,component]
+        #graphite.structure_map[grob.name].add_scalar_quantity(
+        #    attr_name+'['+str(component)+']', attr_array
+        #)
 
     # Note the default value for the 'center' arg in the docstring
     # (it would have been better to let one put it with type hints,
     #  but I did not figure out a way of getting it from there)
     def flip_or_rotate(
-            interface : gom.meta_types.OGF.Interface,
+            interface : OGF.Interface,
             method    : str,
-            axis      : gom.meta_types.OGF.FlipAxis, # the new enum created above
+            axis      : OGF.FlipAxis, # the new enum created above
             center    : bool
     ):
         """
@@ -1089,8 +1133,8 @@ class MeshGrobPolyScopeCommands:
         grob = interface.grob
     
         if center:
-            C = graphite.get_object_center(grob)
-            graphite.translate_object(grob, -C)
+            C = MeshGrobOps.get_object_center(grob)
+            MeshGrobOps.translate_object(grob, -C)
                 
         # points array can be modified in-place !
         pts_array = np.asarray(grob.I.Editor.get_points())
@@ -1113,17 +1157,13 @@ class MeshGrobPolyScopeCommands:
             pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
                     
         if center:
-            graphite.translate_object(grob, C)
+            MeshGrobOps.translate_object(grob, C)
         
-        structure = graphite.structure_map[grob.name]
-        if hasattr(structure, 'update_vertex_positions'):
-            structure.update_vertex_positions(pts_array)
-        if hasattr(structure, 'update_point_positions'):
-            structure.update_point_positions(pts_array)
-
+        grob.update()
+            
 # register our new commands so that Graphite GUI sees them            
 PyAutoGUI.register_commands(
-    graphite.scene_graph, gom.meta_types.OGF.MeshGrob, MeshGrobPolyScopeCommands
+    graphite.scene_graph, OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
 
 #=====================================================
