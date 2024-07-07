@@ -357,12 +357,11 @@ class AutoGUI:
         imgui.SameLine()
         imgui.PushItemWidth(-20)
         old_value = getattr(o,property_name)
-        sel,new_value = AutoGUI.combo_box(
+        _,new_value = AutoGUI.combo_box(
             '##properties##'+property_name, values, old_value
         )
         imgui.PopItemWidth()
-        if sel:
-            setattr(o,property_name,new_value)
+        setattr(o,property_name,new_value)
 
     def combo_box(label: str, values: str, old_value: str):
         """ Handles the GUI with a combobox, 
@@ -880,8 +879,8 @@ class GraphiteApp:
         self.scene_graph.application.stop()
                 
     def draw_GUI(self):
-        imgui.SetNextWindowPos([340,10])
-        imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20])
+        imgui.SetNextWindowPos([340,10],imgui.ImGuiCond_Once)
+        imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20],imgui.ImGuiCond_Once)
         unfolded,_ = imgui.Begin(
             'Graphite',True,imgui.ImGuiWindowFlags_MenuBar
         )
@@ -907,8 +906,10 @@ class GraphiteApp:
                 height = height + 50
             else:
                 self.message_changed_frames = 3 # make tty scroll to end
-            imgui.SetNextWindowPos([660,ps.get_window_size()[1]-210])
-            imgui.SetNextWindowSize([600,height])
+            imgui.SetNextWindowPos(
+                [660,ps.get_window_size()[1]-210],imgui.ImGuiCond_Once
+            )
+            imgui.SetNextWindowSize([600,height],imgui.ImGuiCond_Once)
             _,self.show_terminal = imgui.Begin('Terminal',self.show_terminal)
             imgui.Text(self.message)
             if self.message_changed_frames > 0:
