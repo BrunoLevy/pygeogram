@@ -4,7 +4,6 @@
 #  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
 #  - do not triangulate meshes with polygonal facets, triangulate them in View
 #  - a basic file browser
-#  - pulldown to change target object in a command
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
@@ -319,7 +318,7 @@ class AutoGUI:
     ):
         """ Handles the GUI for a GrobName parameter """
         values = gom.get_environment_value('grob_instances')
-        AutoGUI.combo_box(o, property_name, values, tooltip)
+        AutoGUI.combo_box_handler(o, property_name, values, tooltip)
         
     def OGF__MeshGrobName_handler(
             o: object, property_name: str,
@@ -327,7 +326,7 @@ class AutoGUI:
     ):
         """ Handles the GUI for a MeshGrobName parameter """
         values = gom.get_environment_value('OGF::MeshGrob_instances')
-        AutoGUI.combo_box(o, property_name, values, tooltip)
+        AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
     def OGF__VoxelGrobName_handler(
             o: object, property_name: str,
@@ -335,7 +334,7 @@ class AutoGUI:
     ):
         """ Handles the GUI for a VoxelGrobName parameter """
         values = gom.get_environment_value('OGF::VoxelGrob_instances')
-        AutoGUI.combo_box(o, property_name, values, tooltip)
+        AutoGUI.combo_box_handler(o, property_name, values, tooltip)
         
     def OGF__GrobClassName_handler(
             o: object, property_name: str,
@@ -343,7 +342,7 @@ class AutoGUI:
     ):
         """ Handles the GUI for a GrobClassName parameter """
         values = gom.get_environment_value('grob_types')
-        AutoGUI.combo_box(o, property_name, values, tooltip)
+        AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
     def enum_handler(
             o: object, property_name: str,
@@ -355,36 +354,43 @@ class AutoGUI:
             if i != 0:
                 values = values + ';'
             values = values + menum.ith_name(i)
-        AutoGUI.combo_box(o, property_name, values, tooltip)
+        AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
-    def combo_box(
+    def combo_box_handler(
             o: object, property_name: str,
             values: str, tooltip: str
     ):
         """ Handles the GUI with a combobox, 
             given the possible values in a ';'-separated string """
         AutoGUI.label(property_name, tooltip)
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
+        old_value = getattr(o,property_name)
+        sel,new_value = AutoGUI.combo_box(
+            '##properties##'+property_name, values, old_value
+        )
+        imgui.PopItemWidth()
+        if sel:
+            setattr(o,property_name,new_value)
+
+    def combo_box(label: str, values: str, old_value: str):
+        """ Handles the GUI with a combobox, 
+            given the possible values in a ';'-separated string """
         if values=='':
-            return
+            return false,-1
         if values[0] == ';':
             values = values[1:]
         values = values.split(';')
 
-        old_value = getattr(o,property_name)
         found = True
         try:
             old_index = values.index(old_value)
         except:
             found = False
             old_index = 0
-        imgui.SameLine()
-        imgui.PushItemWidth(-20)
-        _,new_index = imgui.Combo(
-            '##properties##'+property_name, old_index, values
-        )
-        imgui.PopItemWidth()
-        setattr(o,property_name,values[new_index])
-
+        sel,new_index = imgui.Combo(label, old_index, values)
+        return sel,values[new_index]
+        
     def label(property_name: str, tooltip: str):
         """ Draws the label of a parameter, 
             and a tooltip if help is available in meta info """
@@ -937,12 +943,7 @@ class GraphiteApp:
     def draw_menubar(self):
         if imgui.BeginMenuBar():
             if imgui.BeginMenu('File'):
-                # self.draw_request_menuitem(self.scene_graph.load_object)
-                # self.draw_request_menuitem(self.scene_graph.save)
-                # self.draw_object_commands_menus(self.scene_graph)
-
                 self.draw_interface_menuitems(self.scene_graph.I.Graphite)
-                
                 imgui.Separator()           
                 if imgui.MenuItem('show all'):
                     self.scene_graph_view.show_all()
@@ -1092,14 +1093,26 @@ class GraphiteApp:
         """ Draws the GUI for the current Graphite command """
         if self.request != None:
             grob = self.get_grob(self.request)
-            if grob.meta_class.name == 'OGF::SceneGraph':
+            if grob.meta_class.is_a(OGF.SceneGraph):
                 objname = 'scene_graph'
                 if self.scene_graph.current() != None:
                     objname = ( objname + ', current=' +
                                 self.scene_graph.current().name )
+                imgui.Text('Object: ' + objname)
             else:
                 objname = grob.name
-            imgui.Text('Object: ' + objname)
+                if (self.request.object().meta_class.is_a(OGF.Interface)):
+                    objnames = gom.get_environment_value(
+                        grob.meta_class.name + '_instances'
+                    )
+                    imgui.Text('Object:')
+                    imgui.SameLine()
+                    _,objname = AutoGUI.combo_box('##Target',objnames,objname)
+                    self.request.object().grob = getattr(
+                        self.scene_graph.objects,objname
+                    )
+                else:
+                    imgui.Text('Object: ' + objname)
             AutoGUI.draw_command(self.request, self.args)
             if imgui.Button('OK'):
                 self.queued_execute_command = True
