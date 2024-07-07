@@ -544,11 +544,13 @@ class GrobView:
         None
         
 class MeshGrobView(GrobView):
-    
+    """ PolyScope view for MeshGrob """
     def __init__(self, o):
         super().__init__(o)
         self.structure = None
         self.create_structures()
+        self.old_attributes = []
+        self.shown_attribute = ''
 
     def create_structures(self):
         o = self.grob
@@ -568,6 +570,23 @@ class MeshGrobView(GrobView):
                 o.name, pts,
                 np.asarray(o.I.Editor.get_tetrahedra())
             )
+
+        # Display scalar attributes
+        if self.structure != None:
+            new_attributes = self.grob.list_attributes('vertices','double',1)
+            new_attributes = [] if new_attributes == '' else new_attributes.split(';')
+            # If there is a new attribute, show it (else keep shown attribute if any)
+            for attr in new_attributes:
+                if attr not in self.old_attributes:
+                    self.shown_attribute = attr
+            for attr in new_attributes:
+                attrarray = np.asarray(E.find_attribute(attr))
+                self.structure.add_scalar_quantity(
+                    attr.removeprefix('vertices.'),
+                    attrarray, enabled=(attr == self.shown_attribute)
+                )
+            self.old_attributes = new_attributes
+            
 
     def remove_structures(self):
         if self.structure != None:
@@ -623,7 +642,12 @@ class SceneGraphView(GrobView):
         for objname in new_list:
             object = getattr(self.grob.objects, objname)
             if objname not in self.view_map:
-                self.view_map[objname] = MeshGrobView(object)
+                viewclassname = object.meta_class.name.removeprefix('OGF::')+'View'
+                try:
+                    self.view_map[objname] = globals()[viewclassname](object)
+                except:
+                    print('Error: ', viewclassname, ' no such view class')
+                    self.view_map[objname] = GrobView(object) # creates a dummy view
 
     def show_all(self):
         for shd in self.view_map.values():
