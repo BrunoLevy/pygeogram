@@ -1,16 +1,18 @@
 # TODO:
 #  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
-#  - voxel grids and images (one MenuMap per grob type)
-#  - multiple PolyScope objects for each Graphite object (points, borders,...)
-#  - do not triangulate meshes with polygonal facets
+#  - Views for VoxelGrob
+#  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
+#  - Attributes in views
+#  - do not triangulate meshes with polygonal facets, triangulate them in View
 #  - a basic file browser
 #  - pulldown to change target object in a command
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
-#  - cleaner scene-graph commands
-#  - load object crashes
+#  - Moveable Graphite windows
+#  - Some messages are not displayed in the tty
+#  - Reset view on first object
 
 import polyscope as ps
 import numpy as np
@@ -399,7 +401,13 @@ class PyAutoGUI:
             'OGF::' + methodsclass.__name__
         )
         mclass.add_constructor()
-        for method_name in dir(methodsclass):
+        
+        if hasattr(methodsclass,'__dict__'):
+            methods = methodsclass.__dict__.keys() # preserves order 
+        else:
+            methods = dir(methodsclass)
+            
+        for method_name in methods:
             if (
                     not method_name.startswith('__') or
                     not method_name.endswith('__')
@@ -714,6 +722,11 @@ class GraphiteApp:
     #====== Main application loop ==========================================
     
     def run(self,args):
+
+        PyAutoGUI.register_commands(
+            self.scene_graph, OGF.SceneGraph, SceneGraphGraphiteCommands
+        )
+        
         for f in args[1:]:
             self.scene_graph.load_object(f)
 
@@ -816,9 +829,12 @@ class GraphiteApp:
     def draw_menubar(self):
         if imgui.BeginMenuBar():
             if imgui.BeginMenu('File'):
-                self.draw_request_menuitem(self.scene_graph.load_object)
-                self.draw_request_menuitem(self.scene_graph.save)
-                self.draw_object_commands_menus(self.scene_graph)
+                # self.draw_request_menuitem(self.scene_graph.load_object)
+                # self.draw_request_menuitem(self.scene_graph.save)
+                # self.draw_object_commands_menus(self.scene_graph)
+
+                self.draw_interface_menuitems(self.scene_graph.I.Graphite)
+                
                 imgui.Separator()           
                 if imgui.MenuItem('show all'):
                     self.scene_graph_view.show_all()
@@ -873,8 +889,10 @@ class GraphiteApp:
                 self.rename_old = None
                 self.rename_new = None
         else: # standard operation (object is not being renamed)
+            selected = (self.scene_graph.current() != None and
+                        self.scene_graph.current().name == objname)
             sel,_=imgui.Selectable(
-                objname, (objname == self.scene_graph.current().name),
+                objname, selected,
                 imgui.ImGuiSelectableFlags_AllowDoubleClick,
                 [itemwidth,0]
             )
@@ -1017,7 +1035,7 @@ class GraphiteApp:
         if not grob.name in self.menu_maps:
             self.menu_maps[grob.name] = MenuMap(grob.meta_class)
         return self.menu_maps[grob.name]
-        
+
     #===== Commands management ==============================================
 
     def set_command(self, request):
@@ -1071,6 +1089,53 @@ class GraphiteApp:
 graphite = GraphiteApp()
 
 #=====================================================
+
+class SceneGraphGraphiteCommands:
+    """ The commands in the fist section of the File menu """
+
+    def load(
+            interface : OGF.Interface,
+            method    : str,
+            filename  : str
+    ):
+        """
+        @brief loads a file
+        @param[in] filename object file name or graphite scenegraph file
+        """
+        interface.grob.load_object(filename)
+
+    def save_scene(
+            interface       : OGF.Interface,
+            method          : str,
+            scene_filename  : str
+    ):
+        """
+        @brief loads a file
+        @param[in] scene_filename = scene.graphite graphite scenegraph file
+        """
+        interface.grob.save(scene_filename)
+        
+    def create_object(
+            interface : OGF.Interface,
+            method    : str,
+            type : OGF.GrobClassName,
+            name : str
+    ):
+        """
+        @brief creates a new object 
+        @param[in] type = OGF::MeshGrob type of the object to create
+        @param[in] name = new_object name of the object to create
+        """
+        interface.grob.create_object(type, name)
+
+    def clear_scenegraph(
+            interface : OGF.Interface,
+            method    : str,
+    ):
+        """ @brief deletes all objects in the scene-graph """
+        interface.grob.clear()
+        
+#======================================================
 
 # Extend Graphite in Python !
 # Add custom commands to Graphite Object Model, so that
