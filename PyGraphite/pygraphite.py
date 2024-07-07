@@ -501,7 +501,6 @@ class MeshGrobOps:
         # Could be written also in 1 line only (but less legible I think):
         #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
         np.copyto(object_vertices,vertices)       # inject into graphite object
-        o.update()
 
 #==== PolyScope display for Graphite objects ==============================
 
@@ -591,6 +590,7 @@ class MeshGrobView(GrobView):
         if not np.allclose(xform,np.eye(4)):
             MeshGrobOps.transform_object(self.grob,xform)
             self.structure.reset_transform()
+            self.grob.update()
             
 class SceneGraphView(GrobView):
     def __init__(self, grob):
