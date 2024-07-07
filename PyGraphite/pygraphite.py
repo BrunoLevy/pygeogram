@@ -507,9 +507,7 @@ class MeshGrobOps:
 class GrobShader:
     def __init__(self, grob):
         self.grob = grob
-        # TODO: but it seems I got a recursive handler somewhere,
-        # so for now I update all shaders after each command.
-        # gom.connect(grob.value_changed,self.update)
+        self.connection = gom.connect(grob.value_changed,self.update)
 
     def show(self):
         self.visible = True
@@ -519,6 +517,11 @@ class GrobShader:
 
     def update(self,grob):
         None
+
+    def remove(self):
+        if self.connection != None:
+            self.connection.remove()
+        self.connection = None
         
 class MeshGrobShader(GrobShader):
     
@@ -550,9 +553,13 @@ class MeshGrobShader(GrobShader):
         if self.structure != None:
             self.structure.remove()
         self.structure = None
-            
-    def __del__(self):
+
+    def remove(self):
         self.remove_structures()
+        super().remove()
+        
+    def __del__(self):
+        self.remove()
 
     def show(self):
         super().show()
@@ -573,7 +580,8 @@ class MeshGrobShader(GrobShader):
         xform = self.structure.get_transform()
         if not np.allclose(xform,np.eye(4)):
             MeshGrobOps.transform_object(self.grob,xform)
-        
+            self.structure.reset_transform()
+            
 class SceneGraphShader(GrobShader):
     def __init__(self, grob):
         super().__init__(grob)
@@ -595,7 +603,7 @@ class SceneGraphShader(GrobShader):
 
         for objname in old_list:
             if objname not in new_list:
-                self.shader_map[objname].remove_structures()
+                self.shader_map[objname].remove()
                 del self.shader_map[objname]
         
         for objname in new_list:
@@ -619,9 +627,6 @@ class SceneGraphShader(GrobShader):
         for shd in self.shader_map.values():
             shd.commit_transform()
 
-    def update_all(self):
-        for shd in self.shader_map.values():
-            shd.update(shd.grob)
 #=========================================================================
 
 class GraphiteApp:
@@ -712,8 +717,6 @@ class GraphiteApp:
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
 
-        self.scene_graph_shader.update_all()
-        
         ps.set_open_imgui_window_for_user_callback(False) # we draw our own win
         ps.set_user_callback(self.draw_GUI)
         self.running = True
@@ -973,25 +976,25 @@ class GraphiteApp:
     # This function is called right after PolyScope has finished rendering
                 
     def handle_queued_command(self):
+        
         if self.queued_execute_command:
             grob = self.get_grob(self.request)
             mmethod = self.request.method()
             objects_before_command = dir(self.scene_graph.objects)
 
             # Commit all transforms (guizmos)
-            #self.scene_graph_shader.commit_transforms()
+            self.scene_graph_shader.commit_transforms()
 
             self.invoke_command()
 
-            self.scene_graph_shader.update_all()
-
             # Polygonal surfaces not supported for now, so we
             # triangulate
-            #if (grob.meta_class.is_a(OGF.MeshGrob) and
-            #    grob.I.Editor.nb_facets != 0):
-            #    grob.I.Surface.triangulate()
+            if (grob.meta_class.is_a(OGF.MeshGrob) and
+                grob.I.Editor.nb_facets != 0):
+                grob.I.Surface.triangulate()
                         
             self.queued_execute_command = False
+            
         if self.queued_close_command:
             self.reset_command()
             self.queued_close_command = False
