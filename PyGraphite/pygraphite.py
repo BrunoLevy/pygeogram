@@ -7,7 +7,6 @@
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Highlight selected
-#  - Moveable Graphite windows
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Extract scalar attribute
