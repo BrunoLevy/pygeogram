@@ -501,14 +501,20 @@ class MeshGrobOps:
         # Could be written also in 1 line only (but less legible I think):
         #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
         np.copyto(object_vertices,vertices)       # inject into graphite object
+        o.update()
 
 #==== PolyScope display for Graphite objects ==============================
 
-class GrobShader:
+class GrobView:
+    """ Manages PolyScope structures associated with a Graphite object """
+    
     def __init__(self, grob):
         self.grob = grob
         self.connection = gom.connect(grob.value_changed,self.update)
 
+    def __del__(self):
+        self.remove()
+        
     def show(self):
         self.visible = True
 
@@ -516,14 +522,20 @@ class GrobShader:
         self.visible = False
 
     def update(self,grob):
+        """ Called whenever the PolyScope structure should be updated """
         None
 
     def remove(self):
+        """ Called whenever the associated Graphite object no longer exists """
         if self.connection != None:
-            self.connection.remove()
+            self.connection.remove() # Important ! do not leave pending connections
         self.connection = None
+
+    def commit_transform(self):
+        """ Applies transforms in PolyScope guizmos to Graphite objects """
+        None
         
-class MeshGrobShader(GrobShader):
+class MeshGrobView(GrobView):
     
     def __init__(self, o):
         super().__init__(o)
@@ -558,9 +570,6 @@ class MeshGrobShader(GrobShader):
         self.remove_structures()
         super().remove()
         
-    def __del__(self):
-        self.remove()
-
     def show(self):
         super().show()
         self.structure.set_enabled(True)
@@ -575,6 +584,7 @@ class MeshGrobShader(GrobShader):
         self.create_structures()
 
     def commit_transform(self):
+        super().commit_transform()
         if self.structure == None:
             return
         xform = self.structure.get_transform()
@@ -582,34 +592,29 @@ class MeshGrobShader(GrobShader):
             MeshGrobOps.transform_object(self.grob,xform)
             self.structure.reset_transform()
             
-class SceneGraphShader(GrobShader):
+class SceneGraphView(GrobView):
     def __init__(self, grob):
         super().__init__(grob)
         self.shader_map = {}
         gom.connect(grob.values_changed, self.update_objects)
 
-    def show(self):
-        self.visible = True
-
-    def hide(self):
-        self.visible = False
-
-    def update(self,grob):
-        None
-
     def update_objects(self,new_list):
+        """ Called whenever the list of Graphite objects changed """
+        
         old_list = list(self.shader_map.keys())
         new_list = [] if new_list == '' else new_list.split(';')
 
+        # Remove views for objects that are no longer there
         for objname in old_list:
             if objname not in new_list:
                 self.shader_map[objname].remove()
                 del self.shader_map[objname]
-        
+
+        # Create views for new objects
         for objname in new_list:
             object = getattr(self.grob.objects, objname)
             if objname not in self.shader_map:
-                self.shader_map[objname] = MeshGrobShader(object)
+                self.shader_map[objname] = MeshGrobView(object)
 
     def show_all(self):
         for shd in self.shader_map.values():
@@ -623,7 +628,8 @@ class SceneGraphShader(GrobShader):
         self.hide_all()
         self.shader_map[obj.name].show()
 
-    def commit_transforms(self):
+    def commit_transform(self):
+        super().commit_transform()
         for shd in self.shader_map.values():
             shd.commit_transform()
 
@@ -702,8 +708,8 @@ class GraphiteApp:
         self.rename_old = None
         self.rename_new = None
 
-        # Shaders
-        self.scene_graph_shader = SceneGraphShader(self.scene_graph)
+        # Views
+        self.scene_graph_view = SceneGraphView(self.scene_graph)
         
     #====== Main application loop ==========================================
     
@@ -815,9 +821,9 @@ class GraphiteApp:
                 self.draw_object_commands_menus(self.scene_graph)
                 imgui.Separator()           
                 if imgui.MenuItem('show all'):
-                    self.scene_graph_shader.show_all()
+                    self.scene_graph_view.show_all()
                 if imgui.MenuItem('hide all'):
-                    self.scene_graph_shader.hide_all()
+                    self.scene_graph_view.hide_all()
                 imgui.Separator()
                 if imgui.MenuItem('quit'):
                     self.running = False
@@ -875,7 +881,7 @@ class GraphiteApp:
             if sel:
                 self.scene_graph.current_object = objname
                 if imgui.IsMouseDoubleClicked(0):
-                    self.scene_graph_shader.show_only(object)
+                    self.scene_graph_view.show_only(object)
 
         self.draw_object_menu(object)
 
@@ -978,17 +984,14 @@ class GraphiteApp:
     def handle_queued_command(self):
         
         if self.queued_execute_command:
-            grob = self.get_grob(self.request)
-            mmethod = self.request.method()
-            objects_before_command = dir(self.scene_graph.objects)
 
             # Commit all transforms (guizmos)
-            self.scene_graph_shader.commit_transforms()
-
+            self.scene_graph_view.commit_transform()
             self.invoke_command()
 
             # Polygonal surfaces not supported for now, so we
             # triangulate
+            grob = self.get_grob(self.request)
             if (grob.meta_class.is_a(OGF.MeshGrob) and
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
@@ -1162,7 +1165,7 @@ class MeshGrobPolyScopeCommands:
         if center:
             MeshGrobOps.translate_object(grob, C)
         
-        grob.update()
+        grob.update() # updates the PolyScope structures in the view
             
 # register our new commands so that Graphite GUI sees them            
 PyAutoGUI.register_commands(
