@@ -518,6 +518,7 @@ class GrobView:
     def __init__(self, grob):
         self.grob = grob
         self.connection = gom.connect(grob.value_changed,self.update)
+        self.visible = True
 
     def __del__(self):
         self.remove()
@@ -603,42 +604,42 @@ class MeshGrobView(GrobView):
 class SceneGraphView(GrobView):
     def __init__(self, grob):
         super().__init__(grob)
-        self.shader_map = {}
+        self.view_map = {}
         gom.connect(grob.values_changed, self.update_objects)
 
     def update_objects(self,new_list):
         """ Called whenever the list of Graphite objects changed """
         
-        old_list = list(self.shader_map.keys())
+        old_list = list(self.view_map.keys())
         new_list = [] if new_list == '' else new_list.split(';')
 
         # Remove views for objects that are no longer there
         for objname in old_list:
             if objname not in new_list:
-                self.shader_map[objname].remove()
-                del self.shader_map[objname]
+                self.view_map[objname].remove()
+                del self.view_map[objname]
 
         # Create views for new objects
         for objname in new_list:
             object = getattr(self.grob.objects, objname)
-            if objname not in self.shader_map:
-                self.shader_map[objname] = MeshGrobView(object)
+            if objname not in self.view_map:
+                self.view_map[objname] = MeshGrobView(object)
 
     def show_all(self):
-        for shd in self.shader_map.values():
+        for shd in self.view_map.values():
             shd.show()
 
     def hide_all(self):
-        for shd in self.shader_map.values():
+        for shd in self.view_map.values():
             shd.hide()
 
     def show_only(self, obj):
         self.hide_all()
-        self.shader_map[obj.name].show()
+        self.view_map[obj.name].show()
 
     def commit_transform(self):
         super().commit_transform()
-        for shd in self.shader_map.values():
+        for shd in self.view_map.values():
             shd.commit_transform()
 
 #=========================================================================
@@ -889,6 +890,18 @@ class GraphiteApp:
                 self.rename_old = None
                 self.rename_new = None
         else: # standard operation (object is not being renamed)
+
+            view = self.scene_graph_view.view_map[objname]
+            visible = (view != None and view.visible)
+
+            selected,visible = imgui.Checkbox('##visible##'+objname, visible)
+            imgui.SameLine()
+            if selected and view != None:
+                if visible:
+                    view.show()
+                else:
+                    view.hide()
+            
             selected = (self.scene_graph.current() != None and
                         self.scene_graph.current().name == objname)
             sel,_=imgui.Selectable(
