@@ -132,15 +132,6 @@ class AutoGUI:
     
     def draw_command(request : OGF.Request, args : ArgList):
         """ Handles the GUI for a Graphite command """
-        imgui.Text(
-            'Command: ' + request.method().name.replace('_',' ')
-        )
-        if (imgui.IsItemHovered() and
-            request.method().has_custom_attribute('help')):
-            imgui.SetTooltip(
-                request.method().custom_attribute_value('help')
-            )
-
         mmethod = request.method()
         if mmethod.nb_args() != 0:
             nb_standard_args = 0
@@ -1091,49 +1082,57 @@ class GraphiteApp:
             
     def draw_command(self):
         """ Draws the GUI for the current Graphite command """
-        if self.request != None:
-            grob = self.get_grob(self.request)
-            if grob.meta_class.is_a(OGF.SceneGraph):
-                objname = 'scene_graph'
-                if self.scene_graph.current() != None:
-                    objname = ( objname + ', current=' +
-                                self.scene_graph.current().name )
-                imgui.Text('Object: ' + objname)
+        if self.request == None:
+            return
+        
+        imgui.Text('Command: ' + self.request.method().name.replace('_',' '))
+        if (imgui.IsItemHovered() and
+           self.request.method().has_custom_attribute('help')):
+           imgui.SetTooltip(self.request.method().custom_attribute_value('help'))
+        grob = self.get_grob(self.request)
+        if grob.meta_class.is_a(OGF.SceneGraph):
+            objname = 'scene_graph'
+            if self.scene_graph.current() != None:
+                objname = ( objname + ', current=' +
+                            self.scene_graph.current().name )
+            imgui.Text('Object: ' + objname)
+        else:
+            objname = grob.name
+            if (self.request.object().meta_class.is_a(OGF.Interface)):
+                objnames = gom.get_environment_value(
+                    grob.meta_class.name + '_instances'
+                )
+                imgui.Text('Object:')
+                imgui.SameLine()
+                _,objname = AutoGUI.combo_box('##Target',objnames,objname)
+                self.request.object().grob = getattr(
+                    self.scene_graph.objects,objname
+                )
             else:
-                objname = grob.name
-                if (self.request.object().meta_class.is_a(OGF.Interface)):
-                    objnames = gom.get_environment_value(
-                        grob.meta_class.name + '_instances'
-                    )
-                    imgui.Text('Object:')
-                    imgui.SameLine()
-                    _,objname = AutoGUI.combo_box('##Target',objnames,objname)
-                    self.request.object().grob = getattr(
-                        self.scene_graph.objects,objname
-                    )
-                else:
-                    imgui.Text('Object: ' + objname)
-            AutoGUI.draw_command(self.request, self.args)
-            if imgui.Button('OK'):
-                self.queued_execute_command = True
-                self.queued_close_command = True
-            if imgui.IsItemHovered():
-                imgui.SetTooltip('Apply and close command')
-            imgui.SameLine()
-            if imgui.Button('Apply'):
-                self.queued_execute_command = True
-            if imgui.IsItemHovered():
-                imgui.SetTooltip('Apply and keep command open')
-            imgui.SameLine()
-            if imgui.Button('Cancel'):
-                self.reset_command()
-            if imgui.IsItemHovered():
-                imgui.SetTooltip('Close command')
-            imgui.SameLine()                
-            if imgui.Button('Reset'):
-                self.set_command(self.request)
-            if imgui.IsItemHovered():
-                imgui.SetTooltip('Reset factory settings')
+                imgui.Text('Object: ' + objname)
+                
+        AutoGUI.draw_command(self.request, self.args)
+        
+        if imgui.Button('OK'):
+            self.queued_execute_command = True
+            self.queued_close_command = True
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Apply and close command')
+        imgui.SameLine()
+        if imgui.Button('Apply'):
+            self.queued_execute_command = True
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Apply and keep command open')
+        imgui.SameLine()
+        if imgui.Button('Cancel'):
+            self.reset_command()
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Close command')
+        imgui.SameLine()                
+        if imgui.Button('Reset'):
+            self.set_command(self.request)
+        if imgui.IsItemHovered():
+            imgui.SetTooltip('Reset factory settings')
 
     # This function is called right after PolyScope has finished rendering
                 
