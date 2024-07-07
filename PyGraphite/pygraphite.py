@@ -897,7 +897,7 @@ class GraphiteApp:
                         self.rename_old == None)
 
         if (show_buttons):
-            itemwidth = itemwidth - 75
+            itemwidth = itemwidth - 105
 
         if self.rename_old == objname: # if object is being renamed
             if self.rename_old == self.rename_new:
