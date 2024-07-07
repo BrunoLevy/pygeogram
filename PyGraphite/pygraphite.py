@@ -13,6 +13,7 @@
 #  - Moveable Graphite windows
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
+#  - init voxelgrid box from object: GrobName support in autogui
 
 import polyscope as ps
 import numpy as np
@@ -993,6 +994,10 @@ class GraphiteApp:
                 imgui.ImGuiSelectableFlags_AllowDoubleClick,
                 [itemwidth,0]
             )
+            if imgui.IsItemHovered():
+                imgui.SetTooltip(
+                    objname + ':' + object.meta_class.name.removeprefix('OGF::')
+                )
             if sel:
                 self.scene_graph.current_object = objname
                 if imgui.IsMouseDoubleClicked(0):
