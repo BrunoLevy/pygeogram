@@ -1,9 +1,7 @@
 # TODO:
 #  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
-#  - Views for VoxelGrob
 #  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
-#  - Attributes in views
 #  - do not triangulate meshes with polygonal facets, triangulate them in View
 #  - a basic file browser
 #  - pulldown to change target object in a command
@@ -13,7 +11,7 @@
 #  - Moveable Graphite windows
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
-#  - init voxelgrid box from object: GrobName support in autogui
+#  - Extract scalar attribute
 
 import polyscope as ps
 import numpy as np
@@ -315,6 +313,14 @@ class AutoGUI:
         imgui.PopItemWidth()
         setattr(o,property_name,val)
 
+    def OGF__GrobName_handler(
+            o: object, property_name: str,
+            mtype: OGF.GrobName, tooltip: str
+    ):
+        """ Handles the GUI for a GrobName parameter """
+        values = gom.get_environment_value('grob_instances')
+        AutoGUI.combo_box(o, property_name, values, tooltip)
+        
     def OGF__MeshGrobName_handler(
             o: object, property_name: str,
             mtype: OGF.MeshGrobName, tooltip: str
@@ -323,6 +329,14 @@ class AutoGUI:
         values = gom.get_environment_value('OGF::MeshGrob_instances')
         AutoGUI.combo_box(o, property_name, values, tooltip)
 
+    def OGF__VoxelGrobName_handler(
+            o: object, property_name: str,
+            mtype: OGF.VoxelGrobName, tooltip: str
+    ):
+        """ Handles the GUI for a VoxelGrobName parameter """
+        values = gom.get_environment_value('OGF::VoxelGrob_instances')
+        AutoGUI.combo_box(o, property_name, values, tooltip)
+        
     def OGF__GrobClassName_handler(
             o: object, property_name: str,
             mtype: OGF.GrobClassName, tooltip: str
@@ -600,10 +614,14 @@ class MeshGrobView(GrobView):
         
     def show(self):
         super().show()
+        if self.structure == None:
+            return
         self.structure.set_enabled(True)
 
     def hide(self):
         super().hide()
+        if self.structure == None:
+            return
         self.structure.set_enabled(False)
 
     def update(self,grob):
@@ -668,10 +686,14 @@ class VoxelGrobView(GrobView):
         
     def show(self):
         super().show()
+        if self.structure == None:
+            return
         self.structure.set_enabled(True)
 
     def hide(self):
         super().hide()
+        if self.structure == None:
+            return
         self.structure.set_enabled(False)
 
     def update(self,grob):
@@ -1026,7 +1048,8 @@ class GraphiteApp:
                 self.set_command(object.save)
 
             if imgui.MenuItem('commit transform'):
-                self.commit_transform(object)
+                self.scene_graph_view.view_map[object.name].commit_transform()
+                
             if imgui.IsItemHovered():
                 imgui.SetTooltip(
                     'transforms vertices according to Polyscope transform guizmo'
