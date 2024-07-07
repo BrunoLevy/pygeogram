@@ -583,7 +583,7 @@ class MeshGrobView(GrobView):
                 attrarray = np.asarray(E.find_attribute(attr))
                 self.structure.add_scalar_quantity(
                     attr.removeprefix('vertices.'),
-                    attrarray, enabled=(attr == self.shown_attribute)
+                    attrarray, enabled = (attr == self.shown_attribute)
                 )
             self.old_attributes = new_attributes
             
@@ -619,7 +619,67 @@ class MeshGrobView(GrobView):
             MeshGrobOps.transform_object(self.grob,xform)
             self.structure.reset_transform()
             self.grob.update()
-            
+
+#================================================================================
+
+class VoxelGrobView(GrobView):
+    """ PolyScope view for VoxelGrob """
+    def __init__(self, o):
+        super().__init__(o)
+        self.structure = None
+        self.create_structures()
+        self.old_attributes = []
+        self.shown_attribute = ''
+
+    def create_structures(self):
+        E = self.grob.I.Editor
+        bound_low = [ float(x) for x in E.origin.split()]
+        U = [ float(x) for x in E.U.split()]
+        V = [ float(x) for x in E.V.split()]
+        W = [ float(x) for x in E.W.split()]
+        bound_high = [bound_low[0] + U[0], bound_low[1]+V[1], bound_low[2]+W[2]]
+        dims = [E.nu, E.nv, E.nw]
+        self.structure = ps.register_volume_grid(
+            self.grob.name, dims, bound_low, bound_high
+        )
+        new_attributes = self.grob.displayable_attributes
+        new_attributes = [] if new_attributes == '' else new_attributes.split(';')
+        # If there is a new attribute, show it (else keep shown attribute if any)
+        for attr in new_attributes:
+            if attr not in self.old_attributes:
+                self.shown_attribute = attr
+        for attr in new_attributes:
+            attrarray = np.asarray(E.find_attribute(attr)).reshape(E.nu, E.nv, E.nw)
+            attrarray = attrarray.transpose()
+            self.structure.add_scalar_quantity(
+                attr, attrarray, enabled = (self.shown_attribute == attr)
+            )
+        self.old_attributes = new_attributes
+        
+    def remove_structures(self):
+        if self.structure != None:
+            self.structure.remove()
+        self.structure = None
+
+    def remove(self):
+        self.remove_structures()
+        super().remove()
+        
+    def show(self):
+        super().show()
+        self.structure.set_enabled(True)
+
+    def hide(self):
+        super().hide()
+        self.structure.set_enabled(False)
+
+    def update(self,grob):
+        super().update(grob)
+        self.remove_structures()
+        self.create_structures()
+
+#=====================================================================================
+
 class SceneGraphView(GrobView):
     def __init__(self, grob):
         super().__init__(grob)
