@@ -546,7 +546,7 @@ class GrobView:
     def remove(self):
         """ Called whenever the associated Graphite object no longer exists """
         if self.connection != None:
-            self.connection.remove() # Important ! do not leave pending connections
+            self.connection.remove() # Important! don't leave pending connections
         self.connection = None
 
     def commit_transform(self):
@@ -558,9 +558,9 @@ class MeshGrobView(GrobView):
     def __init__(self, o):
         super().__init__(o)
         self.structure = None
-        self.create_structures()
         self.old_attributes = []
         self.shown_attribute = ''
+        self.create_structures()
 
     def create_structures(self):
         o = self.grob
@@ -584,8 +584,11 @@ class MeshGrobView(GrobView):
         # Display scalar attributes
         if self.structure != None:
             new_attributes = self.grob.list_attributes('vertices','double',1)
-            new_attributes = [] if new_attributes == '' else new_attributes.split(';')
-            # If there is a new attribute, show it (else keep shown attribute if any)
+            new_attributes = (
+                [] if new_attributes == '' else new_attributes.split(';')
+            )
+            # If there is a new attribute, show it
+            # (else keep shown attribute if any)
             for attr in new_attributes:
                 if attr not in self.old_attributes:
                     self.shown_attribute = attr
@@ -657,14 +660,17 @@ class VoxelGrobView(GrobView):
             self.grob.name, dims, bound_low, bound_high
         )
         new_attributes = self.grob.displayable_attributes
-        new_attributes = [] if new_attributes == '' else new_attributes.split(';')
-        # If there is a new attribute, show it (else keep shown attribute if any)
+        new_attributes = (
+            [] if new_attributes == '' else new_attributes.split(';')
+        )
+        # If there is a new attribute, show it
+        # (else keep shown attribute if any)
         for attr in new_attributes:
             if attr not in self.old_attributes:
                 self.shown_attribute = attr
         for attr in new_attributes:
-            attrarray = np.asarray(E.find_attribute(attr)).reshape(E.nu, E.nv, E.nw)
-            attrarray = attrarray.transpose()
+            attrarray = np.asarray(E.find_attribute(attr))
+            attrarray = attrarray.reshape(E.nu, E.nv, E.nw).transpose()
             self.structure.add_scalar_quantity(
                 attr, attrarray, enabled = (self.shown_attribute == attr)
             )
@@ -696,7 +702,7 @@ class VoxelGrobView(GrobView):
         self.remove_structures()
         self.create_structures()
 
-#=====================================================================================
+#===============================================================================
 
 class SceneGraphView(GrobView):
     def __init__(self, grob):
@@ -720,12 +726,14 @@ class SceneGraphView(GrobView):
         for objname in new_list:
             object = getattr(self.grob.objects, objname)
             if objname not in self.view_map:
-                viewclassname = object.meta_class.name.removeprefix('OGF::')+'View'
+                viewclassname = (
+                    object.meta_class.name.removeprefix('OGF::')+'View'
+                )
                 try:
                     self.view_map[objname] = globals()[viewclassname](object)
                 except:
                     print('Error: ', viewclassname, ' no such view class')
-                    self.view_map[objname] = GrobView(object) # creates a dummy view
+                    self.view_map[objname] = GrobView(object) # dummy view
 
     def show_all(self):
         for shd in self.view_map.values():
@@ -879,7 +887,9 @@ class GraphiteApp:
                 
     def draw_GUI(self):
         imgui.SetNextWindowPos([340,10],imgui.ImGuiCond_Once)
-        imgui.SetNextWindowSize([300,ps.get_window_size()[1]-20],imgui.ImGuiCond_Once)
+        imgui.SetNextWindowSize(
+            [300,ps.get_window_size()[1]-20],imgui.ImGuiCond_Once
+        )
         unfolded,_ = imgui.Begin(
             'Graphite',True,imgui.ImGuiWindowFlags_MenuBar
         )
