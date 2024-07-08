@@ -990,45 +990,80 @@ class SceneGraphView(GrobView):
 #=========================================================================
 
 class GraphiteApp:
+    """ @brief the Graphite Application class """
 
-    #===== Application logic =============================================
+    #===== Application logic, callbacks ========================================
 
-    # Callback for printing, redirected to terminal and for progress,
-    # redirecting to progress bar
-    # Since commands are queued and called outside PolyScope rendering function,
-    # they can draw an additional frame in need be
-    # (by calling PolyScope.frame_tick)
-    
-    def out_CB(self,str):
-        self.print(str)
+    def out_CB(self,msg:str):
+        """
+        @brief Message display callback
+        @details Called whenever Graphite wants to display something. 
+          It generates a new PolyScope frame. Since commands are invoked outside
+          of a PolyScope frame, and since messages are triggered by commands
+          only, (normally) there can't be nested PolyScope frames.
+        @param[in] msg the message to be displayed
+        """
+        self.print(msg)
         while self.running and self.message_changed_frames > 0:
             ps.frame_tick() 
 
-    def err_CB(self,str):
+    def err_CB(self,msg:str):
+        """
+        @brief Error display callback
+        @details Called whenever Graphite wants to display something. 
+          It generates a new PolyScope frame. Since commands are invoked outside
+          of a PolyScope frame, and since messages are triggered by commands
+          only, (normally) there can't be nested PolyScope frames.
+        @param[in] msg the error message to be displayed
+        """
         self.show_terminal=True # make terminal appear if it was hidden
-        self.print(str)
+        self.print(msg)
         while self.running and self.message_changed_frames > 0:
             ps.frame_tick()
             
-    def progress_begin_CB(self,taskname):
+    def progress_begin_CB(self,taskname:str):
+        """
+        @brief Progress bar begin callback
+        @details Called whenever Graphite wants to start a progress bar.
+          It generates a new PolyScope frame. Since commands are invoked outside
+          of a PolyScope frame, and since messages are triggered by commands
+          only, (normally) there can't be nested PolyScope frames.
+        @param[in] taskname the name of the task in the progress bar
+        """
         self.progress_task = taskname
         self.progress_percent = 0
         if self.running:
             ps.frame_tick()
 
-    def progress_CB(self,progress_percent):
+    def progress_CB(self,progress_percent:int):
+        """
+        @brief Progress bar progression callback
+        @details Called whenever Graphite wants to update a progress bar.
+          It generates a new PolyScope frame. Since commands are invoked outside
+          of a PolyScope frame, and since messages are triggered by commands
+          only, (normally) there can't be nested PolyScope frames.
+        @param[in] progress_percent percentage of progression
+        """
         self.progress_percent = progress_percent
         if self.running:
             ps.frame_tick()
 
     def progress_end_CB(self):
+        """
+        @brief Progress bar end callback
+        @details Called whenever Graphite wants to terminate a progress bar.
+          It generates a new PolyScope frame. Since commands are invoked outside
+          of a PolyScope frame, and since messages are triggered by commands
+          only, (normally) there can't be nested PolyScope frames.
+        """
         self.progress_task = None
         if self.running:
             ps.frame_tick()
 
-    # constructor
+    # ============= constructor ==========================================
             
     def __init__(self):
+        """ @brief GraphiteApp constructor """
         self.running = False
         
         self.menu_maps = {}
@@ -1068,6 +1103,10 @@ class GraphiteApp:
     #====== Main application loop ==========================================
     
     def run(self,args):
+        """ 
+        @brief Main application loop
+        @param[in] args command line arguments
+        """
 
         PyAutoGUI.register_commands(
             self.scene_graph, OGF.SceneGraph, SceneGraphGraphiteCommands
@@ -1121,6 +1160,7 @@ class GraphiteApp:
         self.scene_graph.application.stop()
                 
     def draw_GUI(self):
+        """ @brief Draws Graphite GUI """
         imgui.SetNextWindowPos([340,10],imgui.ImGuiCond_Once)
         imgui.SetNextWindowSize(
             [300,ps.get_window_size()[1]-20],imgui.ImGuiCond_Once
@@ -1136,14 +1176,26 @@ class GraphiteApp:
         self.draw_terminal_window()
         self.draw_progressbar_window()
 
-    def print(self, str):
-        self.message = self.message + str
+    def print(self, msg: str):
+        """ 
+        @brief Prints a message to the terminal window in Graphite
+        @details Triggers graphics update for 3 frames, for leaving the
+          slider enough time to reach the last line in the terminal
+        @param[in] msg the message to be printed
+        """
+        self.message = self.message + msg
         self.message_changed_frames = 3 # needs three frames for SetScrollY()
                                         # to do the job
         
     #====== Main elements of GUI ==========================================
 
     def draw_terminal_window(self):
+        """
+        @brief Draws the terminal window
+        @details Handles scrolling to the last line each time a new message
+          is printed
+        @see out_CB(), err_CB()
+        """
         if self.show_terminal: 
             height = 150
             if self.progress_task == None:
@@ -1162,6 +1214,10 @@ class GraphiteApp:
             imgui.End()
 
     def draw_progressbar_window(self):
+        """
+        @brief Draws the progressbar window
+        @see progress_begin_CB(), progress_CB(), progress_end_CB()
+        """
         if self.progress_task != None:
             imgui.SetNextWindowPos([660,ps.get_window_size()[1]-55])
             imgui.SetNextWindowSize([600,45])
@@ -1177,8 +1233,13 @@ class GraphiteApp:
             imgui.End()
             
     def draw_menubar(self):
+        """
+        @brief Draws Graphite's main menubar
+        """
         if imgui.BeginMenuBar():
             if imgui.BeginMenu('File'):
+                # SceneGraphGraphiteCommands: Implemented in Python, atr
+                # the end of this file, and registered in run()
                 self.draw_interface_menuitems(self.scene_graph.I.Graphite)
                 imgui.Separator()           
                 if imgui.MenuItem('show all'):
@@ -1198,6 +1259,9 @@ class GraphiteApp:
             imgui.EndMenuBar()
 
     def draw_scenegraph_GUI(self):
+        """
+        @brief Draws the GUI of the SceneGraph, with the editable list of objects
+        """
         # Get scene objects, I do that instead of dir(self.scene_graph.objects)
         # to keep the order of the objects.
         objects = []
@@ -1210,7 +1274,13 @@ class GraphiteApp:
             self.draw_object_GUI(object)
         imgui.EndListBox()
 
-    def draw_object_GUI(self, object):
+    def draw_object_GUI(self, object: GOM.Grob):
+        """
+        @brief Draws the GUI for editing one Graphite object. 
+        @details Handles visibility button, object menus, renaming, move up / 
+          move down buttons and delete button. Used by draw_scenegraph_GUI()
+        @param[in] object the Graphite object
+        """
         objname = object.name
         itemwidth = imgui.GetContentRegionAvail()[0]
         show_buttons = (self.scene_graph.current_object == objname and
@@ -1268,7 +1338,14 @@ class GraphiteApp:
             imgui.SameLine()
             self.draw_object_buttons(object)
         
-    def draw_object_menu(self, object):
+    def draw_object_menu(self, object: OGF.Grob):
+        """ 
+        @brief Draws the contextual menu associated with an object
+        @details Handles general commands, implemented here, and commands
+          from Graphite Object models, using the MenuMap. Used by
+          draw_object_GUI().
+        """
+
         if imgui.BeginPopupContextItem(object.name+'##ops'):
             if imgui.MenuItem('rename'):
                 self.rename_old = object.name
@@ -1298,7 +1375,13 @@ class GraphiteApp:
                 self.set_command(request)
             imgui.EndPopup()
 
-    def draw_object_buttons(self, object):
+    def draw_object_buttons(self, object: OGF.Grob):
+        """
+        @brief Draws and handles the buttons associated with an object
+        @param[in] object the object
+        @details Draws the move up, move down and delete buttons. Used
+          by draw_object_GUI()
+        """
         imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [0,0])
         if imgui.ArrowButton('^'+object.name,imgui.ImGuiDir_Up):
             self.scene_graph.current_object = object.name
@@ -1326,7 +1409,7 @@ class GraphiteApp:
             
             
     def draw_command(self):
-        """ Draws the GUI for the current Graphite command """
+        """ @brief Draws the GUI for the current Graphite command """
         if self.request == None:
             return
         
@@ -1379,10 +1462,14 @@ class GraphiteApp:
         if imgui.IsItemHovered():
             imgui.SetTooltip('Reset factory settings')
 
-    # This function is called right after PolyScope has finished rendering
-                
     def handle_queued_command(self):
-        
+        """
+        @brief Executes the Graphite command if it was marked for execution
+        @details Graphite command is not directly called when once pushes the
+          button, because it needs to be called outside the PolyScope frame
+          for the terminal and progress bars to work, since they trigger 
+          additional PolyScope frames (and nesting PolyScope frames is forbidden)
+        """
         if self.queued_execute_command:
 
             # Commit all transforms (guizmos)
@@ -1403,17 +1490,29 @@ class GraphiteApp:
             self.queued_close_command = False
 
             
-    # the closure passed to set_command() may be in the
-    # form grob.interface.method or simply grob.method.
-    # This function gets the grob in both cases.
-    def get_grob(self,request):
+    def get_grob(self,request: OGF.Request) -> OGF.Grob:
+        """
+        @brief Gets the Graphite object from a Request
+        @details The Request passed to set_command() may be in the
+         form grob.interface.method or simply grob.method.
+         This function gets the grob in both cases.
+        @return the Grob associated with the Request
+        """
         object = request.object()
         if(hasattr(object,'grob')):
             return object.grob
         else:
             return object
 
-    def get_menu_map(self, grob):
+    def get_menu_map(self, grob: OGF.Grob):
+        """
+        @brief Gets the MenuMap associated with a grob
+        @param grob the Graphite object
+        @details The MenuMap is constructed the first time the function is
+          called for a Grob class, then stored in a dictionary for the next
+          times
+        @return the MenuMap associated with the graphite object
+        """
         if not grob.name in self.menu_maps:
             self.menu_maps[grob.name] = MenuMap(grob.meta_class)
         return self.menu_maps[grob.name]
@@ -1437,7 +1536,10 @@ class GraphiteApp:
     #===== Other menus from metainformation =================================
                     
     def draw_object_commands_menus(self,o : OGF.Object):
-        """ Draws menus for all commands associated with a Graphite object """
+        """ 
+        @brief Draws menus for all commands associated with a Graphite object 
+        @param[in] o the Graphite object
+        """
         # get all interfaces of the object
         for interface_name in dir(o.I):
             interface = getattr(o.I,interface_name)
@@ -1448,7 +1550,10 @@ class GraphiteApp:
                     imgui.EndMenu()
 
     def draw_interface_menuitems(self, interface : OGF.Interface):
-        """ Draw menu items for all slots of an interface """
+        """ 
+        @brief Draws menu items for all slots of an interface 
+        @param[in] interface the interface, for instance, meshgrob.I.Shapes
+        """
         mclass = interface.meta_class
         for i in range(mclass.nb_slots()):
             mslot = mclass.ith_slot(i)
@@ -1456,7 +1561,10 @@ class GraphiteApp:
                 self.draw_request_menuitem(getattr(interface,mslot.name))
 
     def draw_request_menuitem(self, request : OGF.Request):
-        """ Draw a menu item for a given request (that is, a closure) """
+        """ 
+        @brief Draws a menu item for a given Request (that is, a closure) 
+        @param[in] request the Request
+        """
         if imgui.MenuItem(request.method().name.replace('_',' ')):
             self.set_command(request)
         if (
