@@ -467,7 +467,7 @@ class AutoGUI:
         imgui.PopItemWidth()
         setattr(o,property_name,new_value)
 
-    def combo_box(label: str, values: str, old_value: str):
+    def combo_box(label: str, values: str, old_value: str) -> tuple:
         """
         @brief Draws and handles the GUI for a combo-box
         @param[in] label the ImGui label of te combo-box
@@ -637,7 +637,12 @@ class PyAutoGUI:
 #==== low-level object access =============================================
 
 class MeshGrobOps:
-    def get_object_bbox(o):
+    def get_object_bbox(o: OGF.MeshGrob) -> tuple:
+        """
+        @brief gets the bounding-box of a MeshGrob
+        @param[in] o: the MeshGrob
+        @return pmin,pmax the bounds, as numpy arrays
+        """
         vertices = np.asarray(o.I.Editor.get_points())
         pmin=np.array(
             [np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])]
@@ -647,18 +652,35 @@ class MeshGrobOps:
         )
         return pmin, pmax
 
-    def get_object_center(o):
+    def get_object_center(o: OGF.MeshGrob) -> np.ndarray:
+        """
+        @brief gets the center of a MeshGrob
+        @param[in] o: the MeshGrob
+        @return the center of the bounding-box of o, as a numpy array
+        """
         pmin,pmax = MeshGrobOps.get_object_bbox(o)
         return 0.5*(pmin+pmax)
                 
-    def translate_object(o, T):
+    def translate_object(o: OGF.MeshGrob, T: np.ndarray):
+        """ 
+        @brief Applies a translation to object's vertices 
+        @details Does not call o.update(), it is caller's responsibility
+        @param[in,out] o the MeshGrob to be transformed
+        @param[in] T the translation vector as a numpy array
+        """
         vertices = np.asarray(o.I.Editor.get_points())
         vertices[:,0] = vertices[:,0] + T[0] 
         vertices[:,1] = vertices[:,1] + T[1] 
         vertices[:,2] = vertices[:,2] + T[2] 
 
-    def transform_object(o, xform):
-        """ Applies a 4x4 homogeneous coord transform to object's vertices """
+    def transform_object(o: OGF.MeshGrob, xform: np.ndarray):
+        """ 
+        @brief Applies a 4x4 homogeneous coord transform to object's vertices 
+        @details Does not call o.update(), it is caller's responsibility
+        @param[in,out] o the MeshGrob to be transformed
+        @param[in] xform the 4x4 homogeneous coordinates transform 
+           as a numpy array
+        """
         # if xform is identity, nothing to do
         if np.allclose(xform,np.eye(4)):
             return
@@ -679,39 +701,66 @@ class MeshGrobOps:
 #==== PolyScope display for Graphite objects ==============================
 
 class GrobView:
-    """ Manages PolyScope structures associated with a Graphite object """
+    """ @brief Manages PolyScope structures associated with a Graphite object """
     
-    def __init__(self, grob):
+    def __init__(self, grob : OGF.Grob):
+        """ 
+        @brief GrobView constructor
+        @param[in] grob the Grob this GrobView is associated with
+        """
         self.grob = grob
         self.connection = gom.connect(grob.value_changed,self.update)
         self.visible = True
 
     def __del__(self):
+        """ 
+        @brief GrobView destructor
+        @details removes PolyScope structures associated with this view
+        """
         self.remove()
         
     def show(self):
+        """
+        @brief Shows this view
+        """
         self.visible = True
 
     def hide(self):
+        """
+        @brief Hides this view
+        """
         self.visible = False
 
     def update(self,grob):
-        """ Called whenever the PolyScope structure should be updated """
+        """ 
+        @brief Reconstructs PolyScope structures
+        @brief Called whenever the associated Grob changes
+        """
         None
 
     def remove(self):
-        """ Called whenever the associated Graphite object no longer exists """
+        """ 
+        @brief Removes this View
+        @details Called whenever the associated Grob no longer exists
+        """
         if self.connection != None:
             self.connection.remove() # Important! don't leave pending connections
         self.connection = None
 
     def commit_transform(self):
-        """ Applies transforms in PolyScope guizmos to Graphite objects """
+        """ 
+        @brief Applies transforms in PolyScope guizmos to Graphite objects 
+        """
         None
         
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
-    def __init__(self, o):
+    
+    def __init__(self, o: OGF.MeshGrob):
+        """ 
+        @brief GrobView constructor
+        @param[in] grob the MeshGrob this GrobView is associated with
+        """
         super().__init__(o)
         self.structure = None
         self.old_attributes = []
@@ -719,6 +768,9 @@ class MeshGrobView(GrobView):
         self.create_structures()
 
     def create_structures(self):
+        """
+        @brief Creates PolyScope structures
+        """
         o = self.grob
         E = o.I.Editor
         pts = np.asarray(E.get_points())[:,0:3] # some meshes are in nD.
@@ -755,9 +807,11 @@ class MeshGrobView(GrobView):
                     attrarray, enabled = (attr == self.shown_attribute)
                 )
             self.old_attributes = new_attributes
-            
 
     def remove_structures(self):
+        """
+        @brief Removes PolyScope structures
+        """
         if self.structure != None:
             self.structure.remove()
         self.structure = None
@@ -765,7 +819,7 @@ class MeshGrobView(GrobView):
     def remove(self):
         self.remove_structures()
         super().remove()
-        
+            
     def show(self):
         super().show()
         if self.structure == None:
@@ -797,7 +851,7 @@ class MeshGrobView(GrobView):
 
 class VoxelGrobView(GrobView):
     """ PolyScope view for VoxelGrob """
-    def __init__(self, o):
+    def __init__(self, o: OGF.VoxelGrob):
         super().__init__(o)
         self.structure = None
         self.create_structures()
@@ -805,6 +859,9 @@ class VoxelGrobView(GrobView):
         self.shown_attribute = ''
 
     def create_structures(self):
+        """
+        @brief Creates PolyScope structures
+        """
         E = self.grob.I.Editor
         bound_low = [ float(x) for x in E.origin.split()]
         U = [ float(x) for x in E.U.split()]
@@ -833,6 +890,9 @@ class VoxelGrobView(GrobView):
         self.old_attributes = new_attributes
         
     def remove_structures(self):
+        """
+        @brief Removes PolyScope structures
+        """
         if self.structure != None:
             self.structure.remove()
         self.structure = None
@@ -861,13 +921,26 @@ class VoxelGrobView(GrobView):
 #===============================================================================
 
 class SceneGraphView(GrobView):
-    def __init__(self, grob):
+    """
+    @brief PolyScope view for Graphite SceneGraph
+    @details Manages a dictionary that maps Grob names to PolyScope views
+    """
+    
+    def __init__(self, grob: OGF.SceneGraph):
+        """
+        @brief SceneGraphView constructor
+        @param[in] grob the SceneGraph this SceneGraphView is associated with
+        """
         super().__init__(grob)
         self.view_map = {}
         gom.connect(grob.values_changed, self.update_objects)
 
-    def update_objects(self,new_list):
-        """ Called whenever the list of Graphite objects changed """
+    def update_objects(self,new_list: str):
+        """ 
+        @brief Updates the list of objects
+        @param[in] new_list the new list of objects as a ';'-separated string
+        @details Called whenever the list of Graphite objects changed 
+        """
         
         old_list = list(self.view_map.keys())
         new_list = [] if new_list == '' else new_list.split(';')
@@ -892,14 +965,20 @@ class SceneGraphView(GrobView):
                     self.view_map[objname] = GrobView(object) # dummy view
 
     def show_all(self):
+        """ @brief Shows all objects """
         for shd in self.view_map.values():
             shd.show()
 
     def hide_all(self):
+        """ @brief Hides all objects """
         for shd in self.view_map.values():
             shd.hide()
 
-    def show_only(self, obj):
+    def show_only(self, obj: OGF.Grob):
+        """ 
+        @brief Shows only one object
+        @param[in] obj the object to be shown, all other objects will be hidden
+        """
         self.hide_all()
         self.view_map[obj.name].show()
 
