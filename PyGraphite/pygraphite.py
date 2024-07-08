@@ -267,23 +267,38 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.MetaType, tooltip
     ):
-        """ Handles the GUI for a parameter """
+        """ 
+        @brief Handles the GUI for a property in an object
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] mtype the meta-type of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         if tooltip == None:
             tooltip = ''
+        # special case: property is an enum
         if mtype.meta_class.is_a(OGF.MetaEnum):
             AutoGUI.enum_handler(o, property_name, mtype, tooltip)
             return
+        # general case: do we have a specialized handler ? 
         handler_name = mtype.name.replace(' ','_').replace(':','_') + '_handler'
         if hasattr(AutoGUI, handler_name):
             getattr(AutoGUI, handler_name)(o,property_name, mtype, tooltip)
             return
+        # fallback: use a textbox to edit the property as a string
         AutoGUI.string_handler(o, property_name, mtype, tooltip)
         
     def string_handler(
             o: object, property_name: str,
             mtype: OGF.MetaType, tooltip: str
     ):
-        """ Handles the GUI for a string parameter """
+        """ 
+        @brief Handles the GUI for a string property in an object, with a textbox
+        @details This is also the default fallback handler
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         AutoGUI.label(property_name, tooltip)        
         imgui.SameLine()
         imgui.PushItemWidth(-20)
@@ -298,7 +313,12 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: gom.meta_types.bool, tooltip: str
     ):
-        """ Handles the GUI for a boolean parameter """
+        """ 
+        @brief Handles the GUI for a bool property in an object, with a checkbox
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         imgui.PushItemWidth(-1)
         val = getattr(o,property_name)
         _,val = imgui.Checkbox(
@@ -313,7 +333,12 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.MetaType, tooltip: str
     ):
-        """ Handles the GUI for an integer parameter """
+        """ 
+        @brief Handles the GUI for an int property in an object
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         AutoGUI.label(property_name, tooltip)
         imgui.SameLine()
         imgui.PushItemWidth(-20)
@@ -328,7 +353,12 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.MetaType, tooltip: str
     ):
-        """ Handles the GUI for an unsigned integer parameter """
+        """ 
+        @brief Handles the GUI for an unsigned int property in an object
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         AutoGUI.label(property_name, tooltip)
         imgui.SameLine()
         imgui.PushItemWidth(-20)
@@ -345,7 +375,13 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.GrobName, tooltip: str
     ):
-        """ Handles the GUI for a GrobName parameter """
+        """ 
+        @brief Handles the GUI for a GrobName property in an object
+        @details Displays a pulldown with names of Grobs in SceneGraph
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         values = gom.get_environment_value('grob_instances')
         AutoGUI.combo_box_handler(o, property_name, values, tooltip)
         
@@ -353,7 +389,13 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.MeshGrobName, tooltip: str
     ):
-        """ Handles the GUI for a MeshGrobName parameter """
+        """ 
+        @brief Handles the GUI for a MeshGrobName property in an object
+        @details Displays a pulldown with names of MeshGrobs in SceneGraph
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         values = gom.get_environment_value('OGF::MeshGrob_instances')
         AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
@@ -361,7 +403,13 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.VoxelGrobName, tooltip: str
     ):
-        """ Handles the GUI for a VoxelGrobName parameter """
+        """ 
+        @brief Handles the GUI for a VoxelGrobName property in an object
+        @details Displays a pulldown with names of VoxelGrobs in SceneGraph
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         values = gom.get_environment_value('OGF::VoxelGrob_instances')
         AutoGUI.combo_box_handler(o, property_name, values, tooltip)
         
@@ -369,7 +417,13 @@ class AutoGUI:
             o: object, property_name: str,
             mtype: OGF.GrobClassName, tooltip: str
     ):
-        """ Handles the GUI for a GrobClassName parameter """
+        """ 
+        @brief Handles the GUI for a GrobClassName property in an object
+        @details Displays a pulldown with all possible class names for a Grob
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
         values = gom.get_environment_value('grob_types')
         AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
@@ -377,7 +431,14 @@ class AutoGUI:
             o: object, property_name: str,
             menum: OGF.MetaEnum, tooltip: str
     ):
-        """ Handles the GUI for an enum parameter """
+        """ 
+        @brief Handles the GUI for an enum property in an object
+        @details Displays a pulldown with all possible class names for the enum
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] menum the meta-type of the enum
+        @param[in] an optional tooltip to be displayed
+        """
         values = ''
         for i in range(menum.nb_values()):
             if i != 0:
@@ -389,8 +450,13 @@ class AutoGUI:
             o: object, property_name: str,
             values: str, tooltip: str
     ):
-        """ Handles the GUI with a combobox, 
-            given the possible values in a ';'-separated string """
+        """ 
+        @brief Handles the GUI for a property in an object, using a combobox
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] values a ';'-separated string with all enum values
+        @param[in] an optional tooltip to be displayed
+        """
         AutoGUI.label(property_name, tooltip)
         imgui.SameLine()
         imgui.PushItemWidth(-20)
@@ -402,8 +468,13 @@ class AutoGUI:
         setattr(o,property_name,new_value)
 
     def combo_box(label: str, values: str, old_value: str):
-        """ Handles the GUI with a combobox, 
-            given the possible values in a ';'-separated string """
+        """
+        @brief Draws and handles the GUI for a combo-box
+        @param[in] label the ImGui label of te combo-box
+        @param[in] values a ';'-separated string with all values
+        @param[in] old_value the previous value of the combo-box
+        @return selected flag and new value of the combo-box
+        """
         if values=='':
             return false,-1
         if values[0] == ';':
@@ -420,8 +491,13 @@ class AutoGUI:
         return sel,values[new_index]
         
     def label(property_name: str, tooltip: str):
-        """ Draws the label of a parameter, 
-            and a tooltip if help is available in meta info """
+        """ 
+        @brief Draws the label of a property
+        @param[in] property_name the name of the property, the underscores are
+          replaced with spaces when displayed
+        @param[in] tooltip an optional tooltip to be displayed when the user
+          hovers the label with the mouse pointer, or ''
+        """
         imgui.Text(property_name.replace('_',' '))
         if tooltip != '' and imgui.IsItemHovered():
             imgui.SetTooltip(tooltip)
@@ -429,9 +505,21 @@ class AutoGUI:
 #=========================================================================
 
 class PyAutoGUI:
-    """ Python-AutoGUI interop """
+    """ 
+    @brief Python-AutoGUI interop 
+    @details Functions to inject Python classes and types into the Graphite
+      object model so that they are visible from the GUI and scripting as if
+      they have always been there in C++.
+    """
 
     def register_enum(name: str, values: list):
+        """
+        @brief Declares a new enum type in the Graphite object model
+        @param[in] str the name of the enum, for instance, 'OGF::MyEnumType'. 
+           Then it is accessible using OGF.MyEnumType
+        @param[in] values a list with all the symbolic names of the enum values
+        @return the created meta-type for the enum
+        """
         menum = OGF.MetaEnum.create(name)
         index = 0
         for value in values:
@@ -445,6 +533,19 @@ class PyAutoGUI:
             grobclass: OGF.MetaClass,
             methodsclass: type
     ):
+        """
+        @brief Declares a new commands class in the Graphite object model
+        @param[in] scene_graph the SceneGraph
+        @param[in] grobclass the Grob meta-class to which the new commands
+          will be associated. Its name should be something like 
+          MeshGrobXXXCommands or VoxelGrobYYYCommands
+        @param[in] methodsclass the Python class with the commands. Each command
+          takes as an argument an interface, the name of the method, then the
+          method arguments. It needs to have type hints in order to generate
+          the right GUI elements for the arguments. It can have a docstring
+          in the doxygen format to generate the tooltips. See the end of this
+          file for an example.
+        """
         baseclass = gom.resolve_meta_type(grobclass.name + 'Commands')
         mclass = baseclass.create_subclass(
             'OGF::' + methodsclass.__name__
@@ -467,6 +568,18 @@ class PyAutoGUI:
         return mclass
 
     def register_command(mclass: OGF.MetaClass, pyfunc: callable):
+        """
+        @brief adds a new command in a meta-class, implemented by a Python
+          function. Used internally by register_commands()
+        @param[in] mclass the meta-class, previously created by calling
+          create_subclass() in an existing GOM meta-class
+        @param[in] pyfunc a Python function or callable. It takes as an 
+          argument an interface, the name of the method, then the
+          method arguments. It needs to have type hints in order to generate
+          the right GUI elements for the arguments. It can have a docstring
+          in the doxygen format to generate the tooltips. See the end of this
+          file for an example.
+        """
         # small table to translate standard Python types into
         # GOM metatypes
         python2gom = {
@@ -489,9 +602,13 @@ class PyAutoGUI:
         return mslot
     
     def parse_doc(mslot: OGF.MetaSlot, pyfunc: callable):
-        """ parses the docstring of a python callable 
-            and uses it to document a GOM MetaSlot """
-
+        """ 
+        @brief parses the docstring of a python function or callable 
+            and uses it to document a GOM MetaSlot , used internally by
+            register_command()
+        @param[in] mslot the meta-slot
+        @param[in] pyfunc the Python function or callable
+        """
         if pyfunc.__doc__ == None:
             return 
         for line in pyfunc.__doc__.split('\n'):
