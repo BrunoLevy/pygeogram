@@ -23,8 +23,12 @@ imgui = ps.imgui
 #=========================================================================
 
 class MenuMap:
-    """ Handles the menu hierarchy associated with a grob """
+    """ @brief Handles the menu hierarchy associated with a grob """
     def __init__(self, grob_meta_class : gom.meta_types.OGF.MetaClass):
+        """ 
+        @brief MenuMap constructor
+        @param[in] grob_meta_class the GOM meta-class of a Graphite object
+        """
         self.root = dict()
         grob_class_name = grob_meta_class.name
         commands_str = gom.get_environment_value(grob_class_name + '_commands')
@@ -70,8 +74,12 @@ class MenuMap:
     def draw_menus(
             self, o : OGF.Object, menudict : dict = None
     ) -> OGF.Request:
-        """ Draws the menus stored in a menumap, 
-            Returns a request if a menu item was selected """
+        """
+        @brief Draws the menus stored in a menumap 
+        @param[in] o an object of the meta-class given to the constructor
+        @param[in] optional menu dict (used internally, uses root if unspecified)
+        @return a request if a menu item was selected 
+        """
         if menudict == None:
             menudict = self.root
         result = None
@@ -97,7 +105,12 @@ class MenuMap:
             menu_dict : dict, menu_name : str,
             mslot : OGF.MetaSlot
     ) :
-        """ Inserts an entry in the menumap """
+        """ 
+        @brief Inserts an entry in the menumap (used internally)
+        @param[in] menu_dict a menu dictionary
+        @param[in] menu_name the name of the menu to be inserted, with slashes
+        @param[in] mslot the meta-slot of the method corresponding to the menu
+        """
         if menu_name == '':
             menu_dict[mslot.name] = mslot
         else:
@@ -112,7 +125,11 @@ class MenuMap:
 #=========================================================================
 
 class ArgList(dict):
-    """ A dictionary with attribute-like access """
+    """ 
+    @brief A dictionary with attribute-like access 
+    @details used by AutoGUI to set/get values in arglists or GOM objects
+             with the same syntax
+    """
     def __getattr__(self, key):
         return self[key]
     
@@ -125,12 +142,20 @@ class ArgList(dict):
 #=========================================================================
 
 class AutoGUI:
-    """ Functions to generate the GUI from GOM meta-information """
+    """ 
+    @brief Functions to generate the GUI from GOM meta-information 
+    """
     
     #========= GUI handlers for commands =================================
     
     def draw_command(request : OGF.Request, args : ArgList):
-        """ Handles the GUI for a Graphite command """
+        """ 
+        @brief Handles the GUI for a Graphite command 
+        @details Draws a dialog box to edit the arguments of a Request. A Request
+          is a closure (object.function) where object is a Graphite object.
+        @param[in] request the Request being edited
+        @param[in,out] args the arguments of the Request
+        """
         mmethod = request.method()
         if mmethod.nb_args() != 0:
             nb_standard_args = 0
@@ -175,7 +200,12 @@ class AutoGUI:
             imgui.EndListBox()
 
     def init_command_args(request : OGF.Request) -> ArgList:
-        """ Initializes an ArgList with command arguments """
+        """ 
+        @brief Initializes an ArgList with command arguments 
+        @param[in] request a Request, that is, object.function, where object is
+           a Graphite object
+        @return an ArgList with the default values of the Request arguments
+        """
         args = ArgList()
         mmethod = request.method()
         # This additional arg makes the command display more information
@@ -217,7 +247,16 @@ class AutoGUI:
     def ith_arg_is_advanced(
             mmethod: OGF.MetaMethod, i: int
     ) -> bool:
-        """ Tests whether an argument of a method is declared as advanced """
+        """ 
+        @brief Tests whether an argument of a method is declared as advanced 
+        @details Advanced arguments appear in a pulldown, hidden by default
+           part of the dialog. They are all the arguments after the @advanced
+           tag in the function documentation.
+        @param[in] mmethod a meta-method
+        @param[in] i the index of the argument
+        @retval True of the i-th argument of mmethod is advanced
+        @retval False otherwise
+        """
         if not mmethod.ith_arg_has_custom_attribute(i,'advanced'):
            return False
         return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
