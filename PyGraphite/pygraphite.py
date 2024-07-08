@@ -1263,15 +1263,10 @@ class GraphiteApp:
         @see out_CB(), err_CB()
         """
         if self.show_terminal: 
-            height = 150
-            if self.progress_task == None:
-                height = height + 50
-            else:
-                self.message_changed_frames = 3 # make tty scroll to end
             imgui.SetNextWindowPos(
-                [660,ps.get_window_size()[1]-210],imgui.ImGuiCond_Once
+                [660,ps.get_window_size()[1]-260],imgui.ImGuiCond_Once
             )
-            imgui.SetNextWindowSize([600,height],imgui.ImGuiCond_Once)
+            imgui.SetNextWindowSize([600,200],imgui.ImGuiCond_Once)
             _,self.show_terminal = imgui.Begin('Terminal',self.show_terminal)
             imgui.Text(self.message)
             if self.message_changed_frames > 0:
