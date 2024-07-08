@@ -860,8 +860,8 @@ class MeshGrobView(GrobView):
 
     def highlight(self):
         try:
-            self.prev_mesh_color = self.structure.get_edge_color()
-            self.prev_mesh_width = self.structure.get_edge_width()
+            self.prev_edge_color = self.structure.get_edge_color()
+            self.prev_edge_width = self.structure.get_edge_width()
             self.structure.set_edge_color([1,1,0])
             self.structure.set_edge_width(1.5)
             self.structure.set_enabled(True)
@@ -870,8 +870,8 @@ class MeshGrobView(GrobView):
 
     def unhighlight(self):
         try:
-            self.structure.set_edge_color(self.prev_mesh_color)
-            self.structure.set_edge_width(self.prev_mesh_width)
+            self.structure.set_edge_color(self.prev_edge_color)
+            self.structure.set_edge_width(self.prev_edge_width)
             self.structure.set_enabled(self.visible)
         except:
             None
@@ -947,6 +947,24 @@ class VoxelGrobView(GrobView):
         self.remove_structures()
         self.create_structures()
 
+    def highlight(self):
+        try:
+            self.prev_edge_color = self.structure.get_edge_color()
+            self.prev_edge_width = self.structure.get_edge_width()
+            self.structure.set_edge_color([1,1,0])
+            self.structure.set_edge_width(1.5)
+            self.structure.set_enabled(True)
+        except:
+            None
+
+    def unhighlight(self):
+        try:
+            self.structure.set_edge_color(self.prev_edge_color)
+            self.structure.set_edge_width(self.prev_edge_width)
+            self.structure.set_enabled(self.visible)
+        except:
+            None
+        
 #===============================================================================
 
 class SceneGraphView(GrobView):
