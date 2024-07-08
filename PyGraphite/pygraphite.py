@@ -6,7 +6,6 @@
 #  - a basic file browser
 #  - commands that take attributes, get list from current object, as in Graphite
 #  - I need a console to enter Python commands, with autocompletion of course
-#  - Highlight selected
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Extract scalar attribute
@@ -752,6 +751,18 @@ class GrobView:
         @brief Applies transforms in PolyScope guizmos to Graphite objects 
         """
         None
+
+    def highlight(self):
+        """ 
+        @brief Briefly change object colors to highlight it
+        """
+        None
+
+    def unhighlight(self):
+        """ 
+        @brief Restore previous colors of highlighted object
+        """
+        None
         
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
@@ -847,6 +858,24 @@ class MeshGrobView(GrobView):
             self.structure.reset_transform()
             self.grob.update()
 
+    def highlight(self):
+        try:
+            self.prev_mesh_color = self.structure.get_edge_color()
+            self.prev_mesh_width = self.structure.get_edge_width()
+            self.structure.set_edge_color([1,1,0])
+            self.structure.set_edge_width(1.5)
+            self.structure.set_enabled(True)
+        except:
+            None
+
+    def unhighlight(self):
+        try:
+            self.structure.set_edge_color(self.prev_mesh_color)
+            self.structure.set_edge_width(self.prev_mesh_width)
+            self.structure.set_enabled(self.visible)
+        except:
+            None
+        
 #================================================================================
 
 class VoxelGrobView(GrobView):
@@ -934,6 +963,8 @@ class SceneGraphView(GrobView):
         super().__init__(grob)
         self.view_map = {}
         gom.connect(grob.values_changed, self.update_objects)
+        self.highlighted = None
+        self.highlight_timestamp = 0.0
 
     def update_objects(self,new_list: str):
         """ 
@@ -987,6 +1018,20 @@ class SceneGraphView(GrobView):
         for shd in self.view_map.values():
             shd.commit_transform()
 
+    def highlight_object(self, o:OGF.Grob):
+        if self.highlighted != None:
+            self.view_map[self.highlighted].unhighlight()
+        self.view_map[o.name].highlight()
+        self.highlighted = o.name
+        self.highlight_timestamp = time.time()
+
+    def unhighlight_object(self):
+        if self.highlighted == None:
+            return
+        if time.time() - self.highlight_timestamp > 0.25:
+            self.view_map[self.highlighted].unhighlight()
+            self.highlighted = None
+            
 #=========================================================================
 
 class GraphiteApp:
@@ -1128,11 +1173,14 @@ class GraphiteApp:
         self.scene_graph.application.start()
         while self.running:
             ps.frame_tick()
+
+            # Unhighlight highlighted object based on elapsed time
+            self.scene_graph_view.unhighlight_object()
             
             # Handle command out of frame tick so that CBs
             # can redraw GUI by calling frame tick again.
             self.handle_queued_command() 
-            
+
             # Mechanism to make it sleep a little bit
             # if no mouse click/mouse drag happened
             # since 2000 frames or more. This leaves
@@ -1331,6 +1379,7 @@ class GraphiteApp:
                 self.scene_graph.current_object = objname
                 if imgui.IsMouseDoubleClicked(0):
                     self.scene_graph_view.show_only(object)
+                self.scene_graph_view.highlight_object(object)
 
         self.draw_object_menu(object)
 
