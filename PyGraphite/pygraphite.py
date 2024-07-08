@@ -1274,7 +1274,7 @@ class GraphiteApp:
             self.draw_object_GUI(object)
         imgui.EndListBox()
 
-    def draw_object_GUI(self, object: GOM.Grob):
+    def draw_object_GUI(self, object: OGF.Grob):
         """
         @brief Draws the GUI for editing one Graphite object. 
         @details Handles visibility button, object menus, renaming, move up / 
