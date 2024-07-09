@@ -14,6 +14,7 @@
 #  - Extract scalar attribute
 #  - cleaner gom module, make it behave like standard Python module
 #  - put GraphiteApp in separate file also
+#  - a couple of functions to move to AutoGUI
 
 import polyscope as ps, polyscope.imgui as imgui, numpy as np
 import math,sys,time,typing
@@ -277,7 +278,9 @@ class GraphiteApp:
             if imgui.BeginMenu('File'):
                 # SceneGraphGraphiteCommands: Implemented in Python, atr
                 # the end of this file, and registered in run()
-                self.draw_interface_menuitems(self.scene_graph.I.Graphite)
+                request = AutoGUI.draw_interface_menuitems(self.scene_graph.I.Graphite)
+                if request != None:
+                    self.set_command(request)
                 imgui.Separator()           
                 if imgui.MenuItem('show all'):
                     self.scene_graph_view.show_all()
@@ -603,46 +606,6 @@ class GraphiteApp:
     def invoke_command(self):
         """ Invokes current Graphite command with the args from the GUI """
         self.request(**self.args) #**: expand dict as keywords func call
-        
-    #===== Other menus from metainformation =================================
-                    
-    def draw_object_commands_menus(self,o : OGF.Object):
-        """ 
-        @brief Draws menus for all commands associated with a Graphite object 
-        @param[in] o the Graphite object
-        """
-        # get all interfaces of the object
-        for interface_name in dir(o.I):
-            interface = getattr(o.I,interface_name)
-            # keep only those that inherit OGF::Commands
-            if interface.meta_class.is_a(OGF.Commands):
-                if imgui.BeginMenu(interface_name):
-                    self.draw_interface_menuitems(interface)
-                    imgui.EndMenu()
-
-    def draw_interface_menuitems(self, interface : OGF.Interface):
-        """ 
-        @brief Draws menu items for all slots of an interface 
-        @param[in] interface the interface, for instance, meshgrob.I.Shapes
-        """
-        mclass = interface.meta_class
-        for i in range(mclass.nb_slots()):
-            mslot = mclass.ith_slot(i)
-            if not hasattr(OGF.Interface,mslot.name):
-                self.draw_request_menuitem(getattr(interface,mslot.name))
-
-    def draw_request_menuitem(self, request : OGF.Request):
-        """ 
-        @brief Draws a menu item for a given Request (that is, a closure) 
-        @param[in] request the Request
-        """
-        if imgui.MenuItem(request.method().name.replace('_',' ')):
-            self.set_command(request)
-        if (
-                imgui.IsItemHovered() and
-                request.method().has_custom_attribute('help')
-        ):
-            imgui.SetTooltip(request.method().custom_attribute_value('help'))
         
 #=====================================================
 # Graphite application

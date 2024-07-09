@@ -226,7 +226,60 @@ class AutoGUI:
         return args
 
     #========================================================================
-    
+
+    def draw_object_commands_menus(o : OGF.Object) -> OGF.Request:
+        """ 
+        @brief Draws menus for all commands associated with a Graphite object 
+        @param[in] o the Graphite object
+        @return a Request with the selected item or None
+        """
+        result = None
+        # get all interfaces of the object
+        for interface_name in dir(o.I):
+            interface = getattr(o.I,interface_name)
+            # keep only those that inherit OGF::Commands
+            if interface.meta_class.is_a(OGF.Commands):
+                if imgui.BeginMenu(interface_name):
+                    thisresult = AutoGUI.draw_interface_menuitems(interface)
+                    if thisresult != None:
+                        result = thisresult
+                    imgui.EndMenu()
+        return result
+                    
+    def draw_interface_menuitems(interface : OGF.Interface) -> OGF.Request:
+        """ 
+        @brief Draws menu items for all slots of an interface 
+        @param[in] interface the interface, for instance, meshgrob.I.Shapes
+        @return a Request with the selected item or None
+        """
+        result = None
+        mclass = interface.meta_class
+        for i in range(mclass.nb_slots()):
+            mslot = mclass.ith_slot(i)
+            if not hasattr(OGF.Interface,mslot.name):
+                thisresult = AutoGUI.draw_request_menuitem(getattr(interface,mslot.name))
+                if thisresult != None:
+                    result = thisresult
+        return result
+                    
+    def draw_request_menuitem(request : OGF.Request) -> OGF.Request:
+        """ 
+        @brief Draws a menu item for a given Request (that is, a closure) 
+        @param[in] request the Request
+        @return the request if it was selected or None
+        """
+        result = None
+        if imgui.MenuItem(request.method().name.replace('_',' ')):
+            result = request
+        if (
+                imgui.IsItemHovered() and
+                request.method().has_custom_attribute('help')
+        ):
+            imgui.SetTooltip(request.method().custom_attribute_value('help'))
+        return result
+
+    #========================================================================
+            
     def ith_arg_is_advanced(
             mmethod: OGF.MetaMethod, i: int
     ) -> bool:
