@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 # TODO:
 #  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
@@ -763,6 +765,45 @@ class GrobView:
         @brief Restore previous colors of highlighted object
         """
         None
+
+    def get_structure_params(self, structure = None) -> dict:
+        """
+        @brief Gets parameters of a PolyScope structure
+        @details Parameters are what have a get_xxx and set_xxx functions
+        @param[in] structure an optional PolyScope structure, if unspecified
+          it is taken from self.structure
+        @return a dictionary with the parameters
+        """
+        if structure == None:
+            structure = self.structure
+        params = {}
+        for getter_name in dir(structure):
+            if (
+                    getter_name.find('buffer') == -1 and
+                    getter_name != 'get_ignore_slice_plane' and
+                    getter_name.startswith('get_')
+            ):
+                param_name = getter_name.removeprefix('get_')
+                setter_name = 'set_'+param_name
+                if hasattr(structure, setter_name):
+                    param_val = getattr(structure, getter_name)()
+                    params[param_name] = param_val
+        return params
+
+    def set_structure_params(self, params, structure=None):
+        """
+        @brief Sets parameters of a PolyScope structure
+        @details Parameters are what have a get_xxx and set_xxx functions
+        @param[in] params a dictionary with the parameters
+        @param[in] structure an optional PolyScope structure, if unspecified
+          it is taken from self.structure
+        """
+        if structure == None:
+            structure = self.structure
+        for k,v in params.items():
+            setter_name = 'set_' + k
+            if hasattr(self.structure, setter_name):
+                getattr(structure,setter_name)(v)
         
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
@@ -818,7 +859,7 @@ class MeshGrobView(GrobView):
                     attrarray, enabled = (attr == self.shown_attribute)
                 )
             self.old_attributes = new_attributes
-
+            
     def remove_structures(self):
         """
         @brief Removes PolyScope structures
@@ -1360,8 +1401,20 @@ class GraphiteApp:
             )
             if sel: # <enter> was pressed, rename object
                 if self.rename_old != self.rename_new:
+                    # backup polyscope parameters before renaming
+                    # (because object will have a completely different
+                    #  polyscope structure, and polyscope persistent
+                    #  parameters mechanism is not aware that it is the
+                    #  same object that was renamed)
+                    old_params = self.scene_graph_view.view_map[
+                        self.rename_old
+                    ].get_structure_params()
                     object.rename(self.rename_new)
                     self.scene_graph.current_object = object.name
+                    # restore polyscope parameters
+                    self.scene_graph_view.view_map[
+                        object.name
+                    ].set_structure_params(old_params)                    
                 self.rename_old = None
                 self.rename_new = None
         else: # standard operation (object is not being renamed)
