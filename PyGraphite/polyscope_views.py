@@ -129,7 +129,11 @@ class GrobView:
             k = self.grob.ith_grob_attribute_name(i)
             v = self.grob.ith_grob_attribute_value(i)
             if v != '':
-                if v[0] == '(' and v[-1] == ')':        # convert vector
+                if v == 'True':
+                    v = True
+                elif v == 'False':
+                    v = False
+                elif v[0] == '(' and v[-1] == ')':      # convert vector
                     v = [ float(x) for x in v[1:-1].split(',') ]
                 elif v[0:2] == '[[' and v[-2:] == ']]': # convert matrix
                     v = v.replace('[',' ').replace(']',' ')
