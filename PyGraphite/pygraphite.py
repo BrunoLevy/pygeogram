@@ -21,8 +21,9 @@ import gompy                        # always import gompy *after* polyscope
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
 
-from auto_gui import PyAutoGUI       # to declare new Graphite commands in Python
-from graphite_app import GraphiteApp # of course we need this one 
+from auto_gui      import PyAutoGUI   # to declare new Graphite commands in Python
+from graphite_app  import GraphiteApp # of course we need this one 
+from mesh_grob_ops import MeshGrobOps # some geometric transforms implemented in Python
 
 #=====================================================
 # Create the graphite application
