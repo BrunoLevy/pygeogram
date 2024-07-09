@@ -1,5 +1,6 @@
 import polyscope as ps
 import numpy as np
+import time
 
 import __main__
 gom   = __main__.gom
