@@ -110,7 +110,37 @@ class GrobView:
             setter_name = 'set_' + k
             if hasattr(self.structure, setter_name):
                 getattr(structure,setter_name)(v)
-        
+
+    def copy_polyscope_params_to_grob(self):
+        """
+        @brief copies polyscope parameters from structure to graphite Grob
+        """
+        params = self.get_structure_params()
+        for k,v in params.items():
+            self.grob.set_grob_attribute('polyscope.'+k, str(v))
+
+    def copy_grob_params_to_polyscope(self):
+        """
+        @brief copies polyscope parameters from graphite Grob to structure
+        """
+        if self.structure == None:
+            return
+        for i in range(self.grob.nb_grob_attributes()):
+            k = self.grob.ith_grob_attribute_name(i)
+            v = self.grob.ith_grob_attribute_value(i)
+            try:
+                v = float(v)
+            except:
+                None
+            if k.startswith('polyscope.'):
+                # TODO: convert vectors and matrices
+                k = 'set_'+k.removeprefix('polyscope.')
+                try:
+                    if hasattr(self.structure,k):
+                        getattr(self.structure,k)(v)
+                except:
+                    None
+            
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
     
@@ -396,5 +426,13 @@ class SceneGraphView(GrobView):
         if time.time() - self.highlight_timestamp > 0.25:
             self.view_map[self.highlighted].unhighlight()
             self.highlighted = None
-            
+
+    def copy_polyscope_params_to_grob(self):
+        for v in self.view_map.values():
+            v.copy_polyscope_params_to_grob()
+
+    def copy_grob_params_to_polyscope(self):
+        for v in self.view_map.values():
+            v.copy_grob_params_to_polyscope()
+        
 #===========================================================

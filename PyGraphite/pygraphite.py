@@ -12,7 +12,9 @@
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Extract scalar attribute
-#  - save/load PolyScope attributes in Graphite scenegraph
+#  - save/load PolyScope attributes in Graphite scenegraph: Grobs can store
+#    a set of attributes. For now they are not saved in the scene-graph, and
+#    they do not have GOM bindings.
 #  - cleaner gom module, make it behave like standard Python module
 
 import polyscope as ps
@@ -218,6 +220,8 @@ class GraphiteApp:
         for f in args[1:]:
             self.scene_graph.load_object(f)
 
+        self.scene_graph_view.copy_grob_params_to_polyscope()
+            
         for objname in dir(self.scene_graph.objects):
             grob = self.scene_graph.resolve(objname)
             if (grob.meta_class.is_a(OGF.MeshGrob) and
@@ -473,6 +477,8 @@ class GraphiteApp:
                 self.rename_new = new_object.name
                 
             if imgui.MenuItem('save object'):
+                view = self.scene_graph_view.view_map[object.name]
+                view.copy_polyscope_params_to_grob()
                 self.set_command(object.save)
 
             if imgui.MenuItem('commit transform'):
@@ -707,6 +713,8 @@ class SceneGraphGraphiteCommands:
         @param[in] filename object file name or graphite scenegraph file
         """
         interface.grob.load_object(filename)
+        if filename.endswith('.graphite'):
+            graphite.scene_graph_view.copy_grob_params_to_polyscope()
 
     def save_scene(
             interface       : OGF.Interface,
@@ -714,9 +722,10 @@ class SceneGraphGraphiteCommands:
             scene_filename  : str
     ):
         """
-        @brief loads a file
+        @brief saves a file
         @param[in] scene_filename = scene.graphite graphite scenegraph file
         """
+        graphite.scene_graph_view.copy_polyscope_params_to_grob()
         interface.grob.save(scene_filename)
         
     def create_object(
