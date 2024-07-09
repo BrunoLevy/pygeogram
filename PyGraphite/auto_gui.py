@@ -1,5 +1,5 @@
 import typing
-import polyscope.imgui as ps
+import polyscope.imgui as imgui
 
 import __main__
 gom   = __main__.gom

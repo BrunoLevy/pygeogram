@@ -800,7 +800,7 @@ class MeshGrobPolyScopeCommands:
     ):
         """
         @brief flips axes of an object or rotate around an axis
-        @param[in] axis one of FLIP_X,FLIP_Y,FLIP_Z,ROT_X,ROT_Y,ROT_Z,PERM_XYZ
+        @param[in] axis = PERM_XYZ rotation axis or permutation
         @param[in] center = True if set, xform is relative to object's center
         @menu /Mesh
         """
