@@ -481,18 +481,28 @@ class GraphiteApp:
                 self.rename_new = new_object.name
                 
             if imgui.MenuItem('save object'):
-                view = self.scene_graph_view.view_map[object.name]
+                view = self.scene_graph_view.get_view(object)
                 view.copy_polyscope_params_to_grob()
                 self.set_command(object.save)
 
             if imgui.MenuItem('commit transform'):
-                self.scene_graph_view.view_map[object.name].commit_transform()
-                
+                self.scene_graph_view.get_view(object).commit_transform()
             if imgui.IsItemHovered():
                 imgui.SetTooltip(
                    'transforms vertices according to Polyscope transform guizmo'
                 )
-                    
+
+            if imgui.MenuItem('copy style to all'):
+                object_view = self.scene_graph_view.get_view(object)
+                params = object_view.get_structure_params()
+                for v in self.scene_graph_view.get_views():
+                    if v.grob.meta_class.is_a(object.meta_class):
+                        v.set_structure_params(params)
+            if imgui.IsItemHovered():
+                imgui.SetTooltip(
+                    'copy graphic style to all objects of same type'
+                )
+                
             imgui.Separator() 
             request = self.get_menu_map(object).draw_menus(object)
             if request != None:
