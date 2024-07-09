@@ -9,7 +9,7 @@ OGF   = __main__.gom.meta_types.OGF
 #==== PolyScope display for Graphite objects ==============================
 
 class GrobView:
-    """ @brief Manages PolyScope structures associated with a Graphite object """
+    """ @brief Manages PolyScope structures associated with Graphite objects """
     
     def __init__(self, grob : OGF.Grob):
         """ 
@@ -52,7 +52,7 @@ class GrobView:
         @details Called whenever the associated Grob no longer exists
         """
         if self.connection != None:
-            self.connection.remove() # Important! don't leave pending connections
+            self.connection.remove() # Important! don't leave pending cnnections
         self.connection = None
 
     def commit_transform(self):
@@ -129,29 +129,37 @@ class GrobView:
         for i in range(self.grob.nb_grob_attributes()):
             k = self.grob.ith_grob_attribute_name(i)
             v = self.grob.ith_grob_attribute_value(i)
-            if v != '':
-                if v == 'True':
-                    v = True
-                elif v == 'False':
-                    v = False
-                elif v[0] == '(' and v[-1] == ')':      # convert vector
-                    v = [ float(x) for x in v[1:-1].split(',') ]
-                elif v[0:2] == '[[' and v[-2:] == ']]': # convert matrix
-                    v = v.replace('[',' ').replace(']',' ')
-                    v = [ float(x) for x in v.split() ]
-                    v = np.asarray(v).reshape(4,4)
-                else:
-                    try:
-                        v = float(v)                    # convert float
-                    except:
-                        None
-            if k.startswith('polyscope.'):
-                k = 'set_'+k.removeprefix('polyscope.')
+            if not k.startswith('polyscope.') or v == '':
+                continue
+
+            # transform value from string to native type
+            if v == 'True':                    # convert boolean
+                v = True
+            elif v == 'False':
+                v = False
+            elif v[0] == '(' and v[-1] == ')': # convert vector
+                v = [ float(x) for x in v[1:-1].split(',') ]
+            elif (
+                    len(v) > 4 and
+                    v[0:2] == '[[' and
+                    v[-2:] == ']]'
+            ):                                 # convert matrix
+                v = v.replace('[',' ').replace(']',' ')
+                v = [ float(x) for x in v.split() ]
+                v = np.asarray(v).reshape(4,4)
+            else:
                 try:
-                    if hasattr(self.structure,k):
-                        getattr(self.structure,k)(v)
+                    v = float(v)               # convert float
                 except:
                     None
+
+            setter_name = 'set_'+k.removeprefix('polyscope.')
+            try:
+                if hasattr(self.structure,setter_name):
+                    getattr(self.structure,setter_name)(v)
+                    self.grob.set_grob_attribute(k,'') # reset grob attribute
+            except:
+                None
             
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
@@ -401,7 +409,10 @@ class SceneGraphView(GrobView):
                 except:
                     print('Error: ', viewclassname, ' no such view class')
                     self.view_map[objname] = GrobView(object) # dummy view
-
+                    
+        # copy viewing parameters from loaded objects to polyscope
+        self.copy_grob_params_to_polyscope()
+                    
     def show_all(self):
         """ @brief Shows all objects """
         for shd in self.view_map.values():
@@ -446,5 +457,20 @@ class SceneGraphView(GrobView):
     def copy_grob_params_to_polyscope(self):
         for v in self.view_map.values():
             v.copy_grob_params_to_polyscope()
-        
+
+    def get_view(self, o: OGF.Grob) -> GrobView:
+        """ 
+        @brief Gets the view associated with a graphite object
+        @param[in] o: the object
+        @return the GrobView associated with o
+        """
+        return self.view_map[o.name]
+
+    def get_views(self):
+        """
+        @brief Gets all the views associated with a SceneGraph
+        @return the list of views
+        """
+        return self.view_map.values()
+    
 #===========================================================

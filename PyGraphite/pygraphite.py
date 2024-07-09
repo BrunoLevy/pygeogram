@@ -12,10 +12,9 @@
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Extract scalar attribute
-#  - save/load PolyScope attributes in Graphite scenegraph: Grobs can store
-#    a set of attributes. For now they are not saved in the scene-graph, and
-#    they do not have GOM bindings.
 #  - cleaner gom module, make it behave like standard Python module
+#  - duplicate: copy style also ?
+#  - command to apply style to all objects
 
 import polyscope as ps
 import numpy as np
@@ -219,8 +218,6 @@ class GraphiteApp:
         
         for f in args[1:]:
             self.scene_graph.load_object(f)
-
-        self.scene_graph_view.copy_grob_params_to_polyscope()
             
         for objname in dir(self.scene_graph.objects):
             grob = self.scene_graph.resolve(objname)
@@ -471,8 +468,15 @@ class GraphiteApp:
 
             if imgui.MenuItem('duplicate'):
                 self.scene_graph.current_object = object.name
+                sgv = self.scene_graph_view
+                old_view = self.scene_graph_view.get_view(
+                    self.scene_graph.current()
+                )
+                params = old_view.get_structure_params()
                 new_object = self.scene_graph.duplicate_current()
                 self.scene_graph.current_object = new_object.name
+                new_view = self.scene_graph_view.get_view(new_object)
+                new_view.set_structure_params(params)
                 self.rename_old = new_object.name
                 self.rename_new = new_object.name
                 
@@ -486,7 +490,7 @@ class GraphiteApp:
                 
             if imgui.IsItemHovered():
                 imgui.SetTooltip(
-                    'transforms vertices according to Polyscope transform guizmo'
+                   'transforms vertices according to Polyscope transform guizmo'
                 )
                     
             imgui.Separator() 
@@ -713,8 +717,7 @@ class SceneGraphGraphiteCommands:
         @param[in] filename object file name or graphite scenegraph file
         """
         interface.grob.load_object(filename)
-        if filename.endswith('.graphite'):
-            graphite.scene_graph_view.copy_grob_params_to_polyscope()
+        ps.reset_camera_to_home_view()
 
     def save_scene(
             interface       : OGF.Interface,
