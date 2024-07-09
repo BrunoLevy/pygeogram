@@ -128,12 +128,19 @@ class GrobView:
         for i in range(self.grob.nb_grob_attributes()):
             k = self.grob.ith_grob_attribute_name(i)
             v = self.grob.ith_grob_attribute_value(i)
-            try:
-                v = float(v)
-            except:
-                None
+            if v != '':
+                if v[0] == '(' and v[-1] == ')':        # convert vector
+                    v = [ float(x) for x in v[1:-1].split(',') ]
+                elif v[0:2] == '[[' and v[-2:] == ']]': # convert matrix
+                    v = v.replace('[',' ').replace(']',' ')
+                    v = [ float(x) for x in v.split() ]
+                    v = np.asarray(v).reshape(4,4)
+                else:
+                    try:
+                        v = float(v)                    # convert float
+                    except:
+                        None
             if k.startswith('polyscope.'):
-                # TODO: convert vectors and matrices
                 k = 'set_'+k.removeprefix('polyscope.')
                 try:
                     if hasattr(self.structure,k):
