@@ -1,6 +1,5 @@
 import typing
 import polyscope.imgui as imgui
-
 import gompy
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF

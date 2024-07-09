@@ -14,14 +14,12 @@
 #  - Extract scalar attribute
 #  - cleaner gom module, make it behave like standard Python module
 
-import polyscope as ps
-import numpy as np
-import gompy # always import gompy *after* polyscope
+import polyscope as ps, polyscope.imgui as imgui, numpy as np
 import math,sys,time,typing
+import gompy # always import gompy *after* polyscope
 
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
-imgui = ps.imgui
 
 from auto_gui import MenuMap, ArgList, AutoGUI, PyAutoGUI
 from polyscope_views import SceneGraphView
