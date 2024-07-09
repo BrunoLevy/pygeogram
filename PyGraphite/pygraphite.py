@@ -14,18 +14,18 @@
 #  - Extract scalar attribute
 #  - cleaner gom module, make it behave like standard Python module
 
-import polyscope as ps, numpy as np
-import sys
-import gompy # always import gompy *after* polyscope
+import polyscope as ps, numpy as np # of course we need these two ones
+import sys                          # to get command line args
+import gompy                        # always import gompy *after* polyscope
 
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
 
-from auto_gui import PyAutoGUI
-from graphite_app import GraphiteApp
+from auto_gui import PyAutoGUI       # to declare new Graphite commands in Python
+from graphite_app import GraphiteApp # of course we need this one 
 
 #=====================================================
-# Graphite application
+# Create the graphite application
 
 graphite = GraphiteApp()
 
@@ -141,4 +141,4 @@ ps.set_program_name('PyGraphite/PolyScope')
 ps.init()
 ps.set_up_dir('z_up')
 ps.set_front_dir('y_front')
-graphite.run(sys.argv)
+graphite.run(sys.argv) # Let's rock and roll !
