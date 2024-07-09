@@ -13,6 +13,7 @@
 #  - Reset view on first object
 #  - Extract scalar attribute
 #  - cleaner gom module, make it behave like standard Python module
+#  - put GraphiteApp in separate file also
 
 import polyscope as ps, polyscope.imgui as imgui, numpy as np
 import math,sys,time,typing
@@ -296,7 +297,7 @@ class GraphiteApp:
 
     def draw_scenegraph_GUI(self):
         """
-        @brief Draws the GUI of the SceneGraph, with the editable list of objects
+        @brief Draws the GUI of the SceneGraph, with the editable list of objs
         """
         # Get scene objects, I do that instead of dir(self.scene_graph.objects)
         # to keep the order of the objects.
@@ -484,7 +485,9 @@ class GraphiteApp:
         imgui.Text('Command: ' + self.request.method().name.replace('_',' '))
         if (imgui.IsItemHovered() and
            self.request.method().has_custom_attribute('help')):
-           imgui.SetTooltip(self.request.method().custom_attribute_value('help'))
+           imgui.SetTooltip(
+               self.request.method().custom_attribute_value('help')
+           )
         grob = self.get_grob(self.request)
         if grob.meta_class.is_a(OGF.SceneGraph):
             objname = 'scene_graph'
@@ -536,7 +539,7 @@ class GraphiteApp:
         @details Graphite command is not directly called when once pushes the
           button, because it needs to be called outside the PolyScope frame
           for the terminal and progress bars to work, since they trigger 
-          additional PolyScope frames (and nesting PolyScope frames is forbidden)
+          additional PolyScope frames (nesting PolyScope frames is forbidden)
         """
         if self.queued_execute_command:
 
@@ -598,7 +601,7 @@ class GraphiteApp:
         self.args = None
 
     def invoke_command(self):
-        """ Invokes current Graphite command with the args entered in the GUI """
+        """ Invokes current Graphite command with the args from the GUI """
         self.request(**self.args) #**: expand dict as keywords func call
         
     #===== Other menus from metainformation =================================

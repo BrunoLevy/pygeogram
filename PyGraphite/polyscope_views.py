@@ -6,6 +6,8 @@ import gompy
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
 
+from mesh_grob_ops import MeshGrobOps
+
 #==== PolyScope display for Graphite objects ==============================
 
 class GrobView:
