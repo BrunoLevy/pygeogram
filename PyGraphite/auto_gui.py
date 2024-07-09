@@ -1,9 +1,9 @@
 import typing
 import polyscope.imgui as imgui
 
-import __main__
-gom   = __main__.gom
-OGF   = __main__.gom.meta_types.OGF
+import gompy
+gom = gompy.interpreter()
+OGF = gom.meta_types.OGF
 
 #===============================================================================
 

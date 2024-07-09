@@ -13,14 +13,13 @@
 #  - Reset view on first object
 #  - Extract scalar attribute
 #  - cleaner gom module, make it behave like standard Python module
-#  - duplicate: copy style also ?
-#  - command to apply style to all objects
 
 import polyscope as ps
 import numpy as np
 import gompy # always import gompy *after* polyscope
 import math,sys,time,typing
 
+gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
 imgui = ps.imgui
 

@@ -2,9 +2,9 @@ import polyscope as ps
 import numpy as np
 import time
 
-import __main__
-gom   = __main__.gom
-OGF   = __main__.gom.meta_types.OGF
+import gompy
+gom = gompy.interpreter()
+OGF = gom.meta_types.OGF
 
 #==== PolyScope display for Graphite objects ==============================
 
@@ -257,18 +257,24 @@ class MeshGrobView(GrobView):
 
     def highlight(self):
         try:
+            self.prev_color = self.structure.get_color()            
             self.prev_edge_color = self.structure.get_edge_color()
             self.prev_edge_width = self.structure.get_edge_width()
+            self.prev_material = self.structure.get_material()
+            self.structure.set_color([0.1,0.1,0.1])            
             self.structure.set_edge_color([1,1,0])
-            self.structure.set_edge_width(1.5)
+            self.structure.set_edge_width(1)
+            self.structure.set_material('flat')
             self.structure.set_enabled(True)
         except:
             None
 
     def unhighlight(self):
         try:
+            self.structure.set_color(self.prev_color)
             self.structure.set_edge_color(self.prev_edge_color)
             self.structure.set_edge_width(self.prev_edge_width)
+            self.structure.set_material(self.prev_material)            
             self.structure.set_enabled(self.visible)
         except:
             None
