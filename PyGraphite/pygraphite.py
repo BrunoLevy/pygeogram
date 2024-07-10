@@ -8,11 +8,11 @@
 #     (or in Interface ! Yes, let us do that...)
 #  - a basic file browser
 #  - commands that take attributes, get list from current object, as in Graphite
+#      (parse special attributes)
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Extract scalar attribute
-#  - cleaner gom module, make it behave like standard Python module
 
 import polyscope as ps, numpy as np # of course we need these two ones
 import sys                          # to get command line args
@@ -46,7 +46,7 @@ PyAutoGUI.register_enum(
 # Declare a new Commands class for MeshGrob
 # The name should be something like MeshGrobXXXCommands
 class MeshGrobPolyScopeCommands:
-    
+
     # Python functions declared to Graphite need type hints,
     # so that the GUI can be automatically generated.
     # There are always two additional arguments that appear first:
@@ -55,32 +55,6 @@ class MeshGrobPolyScopeCommands:
     #   to dispatch several slots to the same function
     # Note that Python functions declared to Graphite do not take self as
     #   argument (they are like C++ static class functions)
-    def extract_component(
-            interface : OGF.Interface,
-            method    : str,
-            attr_name : str,
-            component : OGF.index_t
-    ):
-        # docstring is used to generate the tooltip, menu, and have additional
-        # information attached to the "custom attributes" of the MetaMethod.
-        """
-        @brief sends component of a vector attribute to Polyscope
-        @param[in] attr_name name of the attribute
-        @param[in] component index of the component to be extracted
-        @menu /Attributes/Polyscope
-        @keep_structures True # see GraphiteApp.handle_queued_command()
-        """
-        None
-        # TODO ...
-        #grob = interface.grob
-        #attr_array = np.asarray(
-        #    grob.I.Editor.find_attribute('vertices.'+attr_name)
-        #)
-        #attr_array = attr_array[:,component]
-        #graphite.structure_map[grob.name].add_scalar_quantity(
-        #    attr_name+'['+str(component)+']', attr_array
-        #)
-
     # Note the default value for the 'center' arg in the docstring
     # (it would have been better to let one put it with type hints,
     #  but I did not figure out a way of getting it from there)
@@ -90,6 +64,8 @@ class MeshGrobPolyScopeCommands:
             axis      : OGF.FlipAxis, # the new enum created above
             center    : bool
     ):
+        # docstring is used to generate the tooltip, menu, and have additional
+        # information attached to the "custom attributes" of the MetaMethod.
         """
         @brief flips axes of an object or rotate around an axis
         @param[in] axis = PERM_XYZ rotation axis or permutation
@@ -130,7 +106,48 @@ class MeshGrobPolyScopeCommands:
             MeshGrobOps.translate_object(grob, C)
         
         grob.update() # updates the PolyScope structures in the view
-            
+
+
+    def randomize(
+        interface : OGF.Interface,
+        method    : str,
+        howmuch   : float    
+    ):
+        """
+        @brief Applies a random perturbation to the vertices of a mesh
+        @param[in] howmuch = 0.01 amount of perturbation
+        @menu /Mesh
+        """
+        grob = interface.grob
+        pts = np.asarray(grob.I.Editor.get_points())
+        pts [:,:]= pts + howmuch * np.random.rand(*pts.shape)
+        grob.update()
+
+    
+    def extract_component(
+            interface : OGF.Interface,
+            method    : str,
+            attr_name : str,
+            component : OGF.index_t
+    ):
+        """
+        @brief sends component of a vector attribute to Polyscope
+        @param[in] attr_name name of the attribute
+        @param[in] component index of the component to be extracted
+        @menu /Attributes/Polyscope
+        @keep_structures True # see GraphiteApp.handle_queued_command()
+        """
+        None
+        # TODO ...
+        #grob = interface.grob
+        #attr_array = np.asarray(
+        #    grob.I.Editor.find_attribute('vertices.'+attr_name)
+        #)
+        #attr_array = attr_array[:,component]
+        #graphite.structure_map[grob.name].add_scalar_quantity(
+        #    attr_name+'['+str(component)+']', attr_array
+        #)
+        
 # register our new commands so that Graphite GUI sees them            
 PyAutoGUI.register_commands(
     graphite.scene_graph, OGF.MeshGrob, MeshGrobPolyScopeCommands

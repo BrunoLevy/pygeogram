@@ -407,6 +407,26 @@ class AutoGUI:
         imgui.PopItemWidth()
         setattr(o,property_name,val)
 
+    def float_handler(
+            o: object, property_name: str,
+            mtype: OGF.MetaType, tooltip: str
+    ):
+        """ 
+        @brief Handles the GUI for an unsigned int property in an object
+        @param[in,out] o the object 
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
+        AutoGUI.label(property_name, tooltip)
+        imgui.SameLine()
+        imgui.PushItemWidth(-20)
+        val = getattr(o, property_name)
+        _,val = imgui.InputFloat(
+            '##properties##' + property_name, val
+        )
+        imgui.PopItemWidth()
+        setattr(o,property_name,val)
+        
     def OGF__GrobName_handler(
             o: object, property_name: str,
             mtype: OGF.GrobName, tooltip: str

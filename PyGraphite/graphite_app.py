@@ -138,7 +138,7 @@ class GraphiteApp:
             self.scene_graph.load_object(f)
             
         for objname in dir(self.scene_graph.objects):
-            grob = self.scene_graph.resolve(objname)
+            grob = getattr(self.scene_graph.objects, objname)
             if (grob.meta_class.is_a(OGF.MeshGrob) and
                 grob.I.Editor.nb_facets != 0):
                 grob.I.Surface.triangulate()
