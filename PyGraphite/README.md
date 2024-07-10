@@ -30,7 +30,7 @@ You will need to compile Graphite and gompy (see below). In the future I'll do s
 - Step 4: get [`pygraphite.py`](https://raw.githubusercontent.com/BrunoLevy/pygeogram/main/PyGraphite/pygraphite.py)
 - Step 5: run it !
 ```
-python3 graphite.py <optional files to load ....>
+python3 pygraphite.py <optional files to load ....>
 ```
 
 How to use PyGraphite ?
