@@ -54,7 +54,7 @@ class GrobView:
         @details Called whenever the associated Grob no longer exists
         """
         if self.connection != None:
-            self.connection.remove() # Important! don't leave pending cnnections
+            self.connection.remove() # Important! don't leave pending connections
         self.connection = None
 
     def commit_transform(self):

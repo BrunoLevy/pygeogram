@@ -21,9 +21,9 @@ import gompy                        # always import gompy *after* polyscope
 gom = gompy.interpreter()
 OGF = gom.meta_types.OGF
 
-from auto_gui      import PyAutoGUI   # to declare new Graphite commands in Python
-from graphite_app  import GraphiteApp # of course we need this one 
-from mesh_grob_ops import MeshGrobOps # some geometric transforms implemented in Python
+from auto_gui      import PyAutoGUI   # to declare new Graphite cmds in Python
+from graphite_app  import GraphiteApp # of course we need this one
+from mesh_grob_ops import MeshGrobOps # some geometric xforms in Python
 
 #=====================================================
 # Create the graphite application
@@ -75,13 +75,13 @@ class MeshGrobPolyScopeCommands:
 
         # the Graphite object target of the command is obtained like that:
         grob = interface.grob
-    
+
         if center:
             C = MeshGrobOps.get_object_center(grob)
             # MeshGrobOps are also implemented in Python, with numpy !
             # (see mesh_grob_ops.py)
             MeshGrobOps.translate_object(grob, -C)
-                
+
         # points array can be modified in-place !
         pts_array = np.asarray(grob.I.Editor.get_points())
         if   axis == 'FLIP_X':
@@ -98,20 +98,20 @@ class MeshGrobPolyScopeCommands:
             pts_array[:,2] = -pts_array[:,2]
         elif axis == 'ROT_Z':
             pts_array[:,[0,1,2]] = pts_array[:,[1,0,2]]
-            pts_array[:,0] = -pts_array[:,0]        
+            pts_array[:,0] = -pts_array[:,0]
         elif axis == 'PERM_XYZ':
             pts_array[:,[0,1,2]] = pts_array[:,[1,2,0]]
-                    
+
         if center:
             MeshGrobOps.translate_object(grob, C)
-        
+
         grob.update() # updates the PolyScope structures in the view
 
 
     def randomize(
         interface : OGF.Interface,
         method    : str,
-        howmuch   : float    
+        howmuch   : float
     ):
         """
         @brief Applies a random perturbation to the vertices of a mesh
@@ -123,7 +123,7 @@ class MeshGrobPolyScopeCommands:
         pts [:,:]= pts + howmuch * np.random.rand(*pts.shape)
         grob.update()
 
-    
+
     def extract_component(
             interface : OGF.Interface,
             method    : str,
@@ -147,8 +147,8 @@ class MeshGrobPolyScopeCommands:
         #graphite.structure_map[grob.name].add_scalar_quantity(
         #    attr_name+'['+str(component)+']', attr_array
         #)
-        
-# register our new commands so that Graphite GUI sees them            
+
+# register our new commands so that Graphite GUI sees them
 PyAutoGUI.register_commands(
     graphite.scene_graph, OGF.MeshGrob, MeshGrobPolyScopeCommands
 )
