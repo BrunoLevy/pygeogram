@@ -638,5 +638,6 @@ class SceneGraphGraphiteCommands:
     ):
         """ @brief deletes all objects in the scene-graph """
         interface.grob.clear()
+        ps.reset_camera_to_home_view()
 
 #============================================================================

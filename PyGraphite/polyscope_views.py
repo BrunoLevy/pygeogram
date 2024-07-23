@@ -12,9 +12,9 @@ from mesh_grob_ops import MeshGrobOps
 
 class GrobView:
     """ @brief Manages PolyScope structures associated with Graphite objects """
-    
+
     def __init__(self, grob : OGF.Grob):
-        """ 
+        """
         @brief GrobView constructor
         @param[in] grob the Grob this GrobView is associated with
         """
@@ -23,12 +23,12 @@ class GrobView:
         self.visible = True
 
     def __del__(self):
-        """ 
+        """
         @brief GrobView destructor
         @details removes PolyScope structures associated with this view
         """
         self.remove()
-        
+
     def show(self):
         """
         @brief Shows this view
@@ -42,14 +42,14 @@ class GrobView:
         self.visible = False
 
     def update(self,grob):
-        """ 
+        """
         @brief Reconstructs PolyScope structures
         @brief Called whenever the associated Grob changes
         """
         None
 
     def remove(self):
-        """ 
+        """
         @brief Removes this View
         @details Called whenever the associated Grob no longer exists
         """
@@ -58,19 +58,19 @@ class GrobView:
         self.connection = None
 
     def commit_transform(self):
-        """ 
-        @brief Applies transforms in PolyScope guizmos to Graphite objects 
+        """
+        @brief Applies transforms in PolyScope guizmos to Graphite objects
         """
         None
 
     def highlight(self):
-        """ 
+        """
         @brief Briefly change object colors to highlight it
         """
         None
 
     def unhighlight(self):
-        """ 
+        """
         @brief Restore previous colors of highlighted object
         """
         None
@@ -162,12 +162,12 @@ class GrobView:
                     self.grob.set_grob_attribute(k,'') # reset grob attribute
             except:
                 None
-            
+
 class MeshGrobView(GrobView):
     """ PolyScope view for MeshGrob """
-    
+
     def __init__(self, o: OGF.MeshGrob):
-        """ 
+        """
         @brief GrobView constructor
         @param[in] grob the MeshGrob this GrobView is associated with
         """
@@ -199,6 +199,9 @@ class MeshGrobView(GrobView):
                 np.asarray(o.I.Editor.get_tetrahedra())
             )
 
+        if self.structure != None:
+            self.structure.set_enabled(self.visible)
+
         # Display scalar attributes
         if self.structure != None:
             new_attributes = self.grob.list_attributes('vertices','double',1)
@@ -217,7 +220,7 @@ class MeshGrobView(GrobView):
                     attrarray, enabled = (attr == self.shown_attribute)
                 )
             self.old_attributes = new_attributes
-            
+
     def remove_structures(self):
         """
         @brief Removes PolyScope structures
@@ -229,7 +232,7 @@ class MeshGrobView(GrobView):
     def remove(self):
         self.remove_structures()
         super().remove()
-            
+
     def show(self):
         super().show()
         if self.structure == None:
@@ -259,11 +262,11 @@ class MeshGrobView(GrobView):
 
     def highlight(self):
         try:
-            self.prev_color = self.structure.get_color()            
+            self.prev_color = self.structure.get_color()
             self.prev_edge_color = self.structure.get_edge_color()
             self.prev_edge_width = self.structure.get_edge_width()
             self.prev_material = self.structure.get_material()
-            self.structure.set_color([0.1,0.1,0.1])            
+            self.structure.set_color([0.1,0.1,0.1])
             self.structure.set_edge_color([1,1,0])
             self.structure.set_edge_width(1)
             self.structure.set_material('flat')
@@ -276,11 +279,11 @@ class MeshGrobView(GrobView):
             self.structure.set_color(self.prev_color)
             self.structure.set_edge_color(self.prev_edge_color)
             self.structure.set_edge_width(self.prev_edge_width)
-            self.structure.set_material(self.prev_material)            
+            self.structure.set_material(self.prev_material)
             self.structure.set_enabled(self.visible)
         except:
             None
-        
+
 #================================================================================
 
 class VoxelGrobView(GrobView):
@@ -306,6 +309,7 @@ class VoxelGrobView(GrobView):
         self.structure = ps.register_volume_grid(
             self.grob.name, dims, bound_low, bound_high
         )
+        self.structure.set_enabled(self.visible)
         new_attributes = self.grob.displayable_attributes
         new_attributes = (
             [] if new_attributes == '' else new_attributes.split(';')
@@ -322,7 +326,7 @@ class VoxelGrobView(GrobView):
                 attr, attrarray, enabled = (self.shown_attribute == attr)
             )
         self.old_attributes = new_attributes
-        
+
     def remove_structures(self):
         """
         @brief Removes PolyScope structures
@@ -334,7 +338,7 @@ class VoxelGrobView(GrobView):
     def remove(self):
         self.remove_structures()
         super().remove()
-        
+
     def show(self):
         super().show()
         if self.structure == None:
@@ -369,7 +373,7 @@ class VoxelGrobView(GrobView):
             self.structure.set_enabled(self.visible)
         except:
             None
-        
+
 #===============================================================================
 
 class SceneGraphView(GrobView):
@@ -377,7 +381,7 @@ class SceneGraphView(GrobView):
     @brief PolyScope view for Graphite SceneGraph
     @details Manages a dictionary that maps Grob names to PolyScope views
     """
-    
+
     def __init__(self, grob: OGF.SceneGraph):
         """
         @brief SceneGraphView constructor
@@ -390,12 +394,12 @@ class SceneGraphView(GrobView):
         self.highlight_timestamp = 0.0
 
     def update_objects(self,new_list: str):
-        """ 
+        """
         @brief Updates the list of objects
         @param[in] new_list the new list of objects as a ';'-separated string
-        @details Called whenever the list of Graphite objects changed 
+        @details Called whenever the list of Graphite objects changed
         """
-        
+
         old_list = list(self.view_map.keys())
         new_list = [] if new_list == '' else new_list.split(';')
 
@@ -417,10 +421,10 @@ class SceneGraphView(GrobView):
                 except:
                     print('Error: ', viewclassname, ' no such view class')
                     self.view_map[objname] = GrobView(object) # dummy view
-                    
+
         # copy viewing parameters from loaded objects to polyscope
         self.copy_grob_params_to_polyscope()
-                    
+
     def show_all(self):
         """ @brief Shows all objects """
         for shd in self.view_map.values():
@@ -432,7 +436,7 @@ class SceneGraphView(GrobView):
             shd.hide()
 
     def show_only(self, obj: OGF.Grob):
-        """ 
+        """
         @brief Shows only one object
         @param[in] obj the object to be shown, all other objects will be hidden
         """
@@ -467,7 +471,7 @@ class SceneGraphView(GrobView):
             v.copy_grob_params_to_polyscope()
 
     def get_view(self, o: OGF.Grob) -> GrobView:
-        """ 
+        """
         @brief Gets the view associated with a graphite object
         @param[in] o: the object
         @return the GrobView associated with o
@@ -480,5 +484,5 @@ class SceneGraphView(GrobView):
         @return the list of views
         """
         return self.view_map.values()
-    
+
 #===========================================================

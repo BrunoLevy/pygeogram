@@ -156,13 +156,7 @@ class AutoGUI:
             imgui.Spacing()
             for i in range(mmethod.nb_args()):
                 if not AutoGUI.ith_arg_is_advanced(mmethod,i):
-                    tooltip = None
-                    if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                       tooltip = mmethod.ith_arg_custom_attribute_value(i,'help')
-                    AutoGUI.arg_handler(
-                        args,
-                        mmethod.ith_arg_name(i), mmethod.ith_arg_type(i), tooltip
-                    )
+                    AutoGUI.slot_arg_handler(args, mmethod, i)
             if has_advanced_args:
                 if imgui.TreeNode(
                         'Advanced'+'##'+str(request.object())+'.'+mmethod.name
@@ -170,16 +164,7 @@ class AutoGUI:
                     imgui.TreePop()
                     for i in range(mmethod.nb_args()):
                         if AutoGUI.ith_arg_is_advanced(mmethod,i):
-                            tooltip = None
-                            if mmethod.ith_arg_has_custom_attribute(i,'help'):
-                                tooltip = mmethod.ith_arg_custom_attribute_value(
-                                    i,'help'
-                                )
-                            AutoGUI.arg_handler(
-                                args,
-                                mmethod.ith_arg_name(i),
-                                mmethod.ith_arg_type(i), tooltip
-                            )
+                            AutoGUI.slot_arg_handler(args, mmethod, i)
             imgui.EndListBox()
 
     def init_command_args(request : OGF.Request) -> ArgList:
@@ -298,6 +283,28 @@ class AutoGUI:
         return (mmethod.ith_arg_custom_attribute_value(i,'advanced') == 'true')
     
     #========= GUI handlers for command args and properties ==============
+
+    def slot_arg_handler(
+            args: ArgList, mslot: OGF.MetaSlot, i: int
+    ):
+        """
+        @brief Handles the GUI for a slot argument
+        @param[in] args an ArgList
+        @param[in] mslot the metaslot
+        @param[in] i the index of the argument
+        """
+        tooltip = ''
+        if mslot.ith_arg_has_custom_attribute(i,'help'):
+            tooltip = mslot.ith_arg_custom_attribute_value(i,'help')
+        handler = AutoGUI.arg_handler
+        #if mslot.ith_arg_has_custom_attribute(i,'handler'):
+        #    handler_name = mslot.ith_arg_custom_attribute_value(i,'handler')
+        #    if not handler_name.endswith('_handler'):
+        #        handler_name = handler_name + '_handler'
+        #    handler = getattr(AutoGUI,handler_name)
+        handler(
+            args, mslot.ith_arg_name(i), mslot.ith_arg_type(i), tooltip
+        )
     
     def arg_handler(
             o: object, property_name: str,
