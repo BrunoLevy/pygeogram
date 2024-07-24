@@ -188,21 +188,21 @@ class AutoGUI:
             if mmethod.ith_arg_has_default_value(i):
                 val = mmethod.ith_arg_default_value_as_string(i)
             mtype = mmethod.ith_arg_type(i)
-            if mtype.is_a(gom.meta_types.bool):
+            if mtype.equals(gom.meta_types.bool):
                 if val == '':
                     val = False
                 else:
                     val = (val == 'true' or val == 'True')
             elif (
-                mtype.is_a(gom.meta_types.int) or
-                mtype.is_a(OGF.index_t) or
+                mtype.equals(gom.meta_types.int) or
+                mtype.equals(OGF.index_t) or
                 mtype.name == 'unsigned int'
             ):
                 if val == '':
                     val = 0
                 else:
                     val = int(val)
-            elif mmethod.ith_arg_type(i).is_a(gom.meta_types.float):
+            elif mmethod.ith_arg_type(i).equals(gom.meta_types.float):
                 if val == '':
                     val = 0.0
                 else:
@@ -323,7 +323,7 @@ class AutoGUI:
             tooltip = ''
         # special case: property is an enum
         # TODO: why do we need to ask the meta_class here ?
-        if mtype.meta_class.is_a(OGF.MetaEnum):
+        if mtype.is_a(OGF.MetaEnum): # mtype.meta_class.equals(OGF.MetaEnum):
             AutoGUI.enum_handler(o, property_name, mtype, tooltip)
             return
         # general case: do we have a specialized handler ?

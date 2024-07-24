@@ -484,7 +484,7 @@ class GraphiteApp:
             objname = grob.name
             # Ask the meta_class, else Graphite will complain that the
             # Interface is locked when calling is_a() !!!
-            if (self.request.object().meta_class.is_a(OGF.Interface)):
+            if (self.request.object().meta_class.is_subclass_of(OGF.Interface)):
                 objnames = gom.get_environment_value(
                     grob.meta_class.name + '_instances'
                 )
