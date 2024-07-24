@@ -260,7 +260,9 @@ class GraphiteApp:
             if imgui.BeginMenu('File'):
                 # SceneGraphGraphiteCommands: Implemented in Python, atr
                 # the end of this file, and registered in run()
-                request = AutoGUI.draw_interface_menuitems(self.scene_graph.I.Graphite)
+                request = AutoGUI.draw_interface_menuitems(
+                    self.scene_graph.I.Graphite
+                )
                 if request != None:
                     self.set_command(request)
                 imgui.Separator()
@@ -449,18 +451,17 @@ class GraphiteApp:
         if imgui.IsItemHovered():
             imgui.SetTooltip('Move object down')
         imgui.SameLine()
-        imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [5,0])
+        imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [2,0])
         if imgui.Button('X'+'##'+object.name):
             if (self.request != None and
                 self.get_grob(self.request).name == object.name):
                 self.reset_command()
             self.scene_graph.current_object = object.name
             self.scene_graph.delete_current_object()
-            if imgui.IsItemHovered():
-                imgui.SetTooltip('Delete object')
-            imgui.PopStyleVar()
-            imgui.PopStyleVar()
-
+        if imgui.IsItemHovered():
+           imgui.SetTooltip('Delete object')
+        imgui.PopStyleVar()
+        imgui.PopStyleVar()
 
     def draw_command(self):
         """ @brief Draws the GUI for the current Graphite command """
@@ -482,8 +483,9 @@ class GraphiteApp:
             imgui.Text('Object: ' + objname)
         else:
             objname = grob.name
-            # Ask the meta_class, else Graphite will complain that the
-            # Interface is locked when calling is_a() !!!
+            # Ask the meta_class rather than calling is_a(),
+            # else Graphite will complain that the Interface is
+            # locked when calling is_a() !!!
             if (self.request.object().meta_class.is_subclass_of(OGF.Interface)):
                 objnames = gom.get_environment_value(
                     grob.meta_class.name + '_instances'

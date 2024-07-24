@@ -188,21 +188,24 @@ class AutoGUI:
             if mmethod.ith_arg_has_default_value(i):
                 val = mmethod.ith_arg_default_value_as_string(i)
             mtype = mmethod.ith_arg_type(i)
-            if mtype.equals(gom.meta_types.bool):
+            if mtype == gom.meta_types.bool:
                 if val == '':
                     val = False
                 else:
                     val = (val == 'true' or val == 'True')
             elif (
-                mtype.equals(gom.meta_types.int) or
-                mtype.equals(OGF.index_t) or
-                mtype.name == 'unsigned int'
+                mtype == gom.meta_types.int or
+                mtype == OGF.index_t or
+                mtype == gom.resolve_meta_type('unsigned int')
             ):
                 if val == '':
                     val = 0
                 else:
                     val = int(val)
-            elif mmethod.ith_arg_type(i).equals(gom.meta_types.float):
+            elif (
+                mtype == gom.meta_types.float or
+                mtype == gom.meta_types.double
+            ):
                 if val == '':
                     val = 0.0
                 else:
@@ -322,8 +325,7 @@ class AutoGUI:
         if tooltip == None:
             tooltip = ''
         # special case: property is an enum
-        # TODO: why do we need to ask the meta_class here ?
-        if mtype.is_a(OGF.MetaEnum): # mtype.meta_class.equals(OGF.MetaEnum):
+        if mtype.is_a(OGF.MetaEnum):
             AutoGUI.enum_handler(o, property_name, mtype, tooltip)
             return
         # general case: do we have a specialized handler ?
@@ -409,11 +411,11 @@ class AutoGUI:
         imgui.SameLine()
         imgui.PushItemWidth(-20)
         val = getattr(o,property_name)
-        if val < 0:
-            val = 0
         _,val = imgui.InputInt(
             '##properties##' + property_name, val, 1
         )
+        if val < 0:
+            val = 0
         imgui.PopItemWidth()
         setattr(o,property_name,val)
 
@@ -436,6 +438,8 @@ class AutoGUI:
         )
         imgui.PopItemWidth()
         setattr(o,property_name,val)
+
+    double_handler = float_handler
 
     def OGF__GrobName_handler(
             o: object, property_name: str,
