@@ -137,12 +137,6 @@ class GraphiteApp:
         for f in args[1:]:
             self.scene_graph.load_object(f)
 
-        for objname in dir(self.scene_graph.objects):
-            grob = getattr(self.scene_graph.objects, objname)
-            if (grob.is_a(OGF.MeshGrob) and
-                grob.I.Editor.nb_facets != 0):
-                grob.I.Surface.triangulate()
-
         ps.set_open_imgui_window_for_user_callback(False) # we draw our own win
         ps.set_user_callback(self.draw_GUI)
         self.running = True
@@ -531,18 +525,8 @@ class GraphiteApp:
           additional PolyScope frames (nesting PolyScope frames is forbidden)
         """
         if self.queued_execute_command:
-
-            # Commit all transforms (guizmos)
-            self.scene_graph_view.commit_transform()
+            self.scene_graph_view.commit_transform() # Commit all xform guizmos
             self.invoke_command()
-
-            # Polygonal surfaces not supported for now, so we
-            # triangulate
-            grob = self.get_grob(self.request)
-            if (grob.is_a(OGF.MeshGrob) and
-                grob.I.Editor.nb_facets != 0):
-                grob.I.Surface.triangulate()
-
             self.queued_execute_command = False
 
         if self.queued_close_command:
