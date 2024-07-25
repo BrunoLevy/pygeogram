@@ -322,20 +322,20 @@ class GraphiteApp:
                     #  polyscope structure, and polyscope persistent
                     #  parameters mechanism is not aware that it is the
                     #  same object that was renamed)
-                    old_params = self.scene_graph_view.view_map[
-                        self.rename_old
-                    ].get_structure_params()
+                    old_params = self.scene_graph_view.get_view(
+                        object
+                    ).get_structure_params()
                     object.rename(self.rename_new)
                     self.scene_graph.current_object = object.name
                     # restore polyscope parameters
-                    self.scene_graph_view.view_map[
-                        object.name
-                    ].set_structure_params(old_params)
+                    self.scene_graph_view.get_view(
+                        object
+                    ).set_structure_params(old_params)
                 self.rename_old = None
                 self.rename_new = None
         else: # standard operation (object is not being renamed)
 
-            view = self.scene_graph_view.view_map[objname]
+            view = self.scene_graph_view.get_view(object)
             visible = (view != None and view.visible)
 
             selected,visible = imgui.Checkbox('##visible##'+objname, visible)

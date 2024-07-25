@@ -4,8 +4,6 @@
 #  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
 #  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
-#  - do not triangulate meshes with polygonal facets, triangulate them in View
-#     (or in Interface ! Yes, let us do that...)
 #  - a basic file browser
 #  - commands that take attributes, get list from current object, as in Graphite
 #      (parse special attributes)
