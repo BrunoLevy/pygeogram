@@ -125,6 +125,7 @@ class GrobView:
     def copy_grob_params_to_polyscope(self):
         """
         @brief copies polyscope parameters from graphite Grob to structure
+               and resets Grob attributes
         """
         if self.structure == None:
             return
