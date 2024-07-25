@@ -177,6 +177,7 @@ class MeshGrobView(GrobView):
         self.old_attributes = []
         self.shown_attribute = ''
         self.create_structures()
+        self.component_attributes = []
 
     def create_structures(self):
         """
@@ -200,27 +201,35 @@ class MeshGrobView(GrobView):
                 np.asarray(o.I.Editor.get_tetrahedra())
             )
 
-        if self.structure != None:
-            self.structure.set_enabled(self.visible)
+        if self.structure == None:
+            return
 
-        # Display scalar attributes
-        if self.structure != None:
-            new_attributes = self.grob.list_attributes('vertices','double',1)
-            new_attributes = (
-                [] if new_attributes == '' else new_attributes.split(';')
+        self.structure.set_enabled(self.visible)
+
+        new_attributes = self.grob.list_attributes('vertices','double',1)
+        new_attributes = (
+            [] if new_attributes == '' else new_attributes.split(';')
+        )
+        # If there is a new attribute, show it
+        # (else keep shown attribute if any)
+        for attr in new_attributes:
+            if attr not in self.old_attributes:
+                self.shown_attribute = attr
+        for attr in new_attributes:
+            attrarray = np.asarray(E.find_attribute(attr))
+            self.structure.add_scalar_quantity(
+                attr.removeprefix('vertices.'),
+                attrarray, enabled = (attr == self.shown_attribute)
             )
-            # If there is a new attribute, show it
-            # (else keep shown attribute if any)
-            for attr in new_attributes:
-                if attr not in self.old_attributes:
-                    self.shown_attribute = attr
-            for attr in new_attributes:
-                attrarray = np.asarray(E.find_attribute(attr))
-                self.structure.add_scalar_quantity(
-                    attr.removeprefix('vertices.'),
-                    attrarray, enabled = (attr == self.shown_attribute)
-                )
-            self.old_attributes = new_attributes
+        self.old_attributes = new_attributes
+        # Show component attributes
+        for (attr, component) in self.component_attributes:
+            attrarray = np.asarray(E.find_attribute('vertices.'+attr))
+            attrname = attr + '[' + str(component) + ']'
+            self.structure.add_scalar_quantity(
+                attrname, attrarray[:,component],
+                enabled = (attrname == self.shown_attribute)
+            )
 
     def remove_structures(self):
         """
@@ -284,6 +293,25 @@ class MeshGrobView(GrobView):
             self.structure.set_enabled(self.visible)
         except:
             None
+
+    def show_component_attribute(self, attribute : str, component : int):
+        """
+        @brief shows a component of a vector attribute
+        @param[in] attribute the attribute name
+        @param[in] component the component, in 0..dim
+        """
+        if (attribute, component) in self.component_attributes:
+            gom.err('component attribute already shown')
+            return
+        attr = self.grob.I.Editor.find_attribute('vertices.'+attribute,True)
+        if attr == None:
+            gom.err('no such attribute')
+            return
+        if component >= attr.dimension:
+            gom.err('component larger than attribute dimension')
+            return
+        self.shown_attribute = attribute + '[' + str(component) + ']'
+        self.component_attributes.append((attribute,component))
 
 #================================================================================
 

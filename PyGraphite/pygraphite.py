@@ -10,7 +10,6 @@
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
-#  - Extract scalar attribute
 
 import polyscope as ps, numpy as np # of course we need these two ones
 import sys                          # to get command line args
@@ -122,29 +121,23 @@ class MeshGrobPolyScopeCommands:
         grob.update()
 
 
-    def extract_component(
+    def show_component_attribute(
             interface : OGF.Interface,
             method    : str,
-            attr_name : str,
+            attribute : str,
             component : OGF.index_t
     ):
         """
         @brief sends component of a vector attribute to Polyscope
-        @param[in] attr_name name of the attribute
+        @param[in] attribute name of the attribute
         @param[in] component index of the component to be extracted
         @menu /Attributes/Polyscope
-        @keep_structures True # see GraphiteApp.handle_queued_command()
         """
         None
-        # TODO ...
-        #grob = interface.grob
-        #attr_array = np.asarray(
-        #    grob.I.Editor.find_attribute('vertices.'+attr_name)
-        #)
-        #attr_array = attr_array[:,component]
-        #graphite.structure_map[grob.name].add_scalar_quantity(
-        #    attr_name+'['+str(component)+']', attr_array
-        #)
+        grob = interface.grob
+        view = graphite.scene_graph_view.get_view(grob)
+        view.show_component_attribute(attribute,component)
+        grob.update()
 
 # register our new commands so that Graphite GUI sees them
 PyAutoGUI.register_commands(
