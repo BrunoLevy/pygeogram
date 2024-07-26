@@ -176,8 +176,8 @@ class MeshGrobView(GrobView):
         self.structure = None
         self.old_attributes = []
         self.shown_attribute = ''
-        self.create_structures()
         self.component_attributes = []
+        self.create_structures()
 
     def create_structures(self):
         """
@@ -206,6 +206,7 @@ class MeshGrobView(GrobView):
 
         self.structure.set_enabled(self.visible)
 
+        # Display scalar attributes
         new_attributes = self.grob.list_attributes('vertices','double',1)
         new_attributes = (
             [] if new_attributes == '' else new_attributes.split(';')
@@ -222,7 +223,8 @@ class MeshGrobView(GrobView):
                 attrarray, enabled = (attr == self.shown_attribute)
             )
         self.old_attributes = new_attributes
-        # Show component attributes
+
+        # Display component attributes
         for (attr, component) in self.component_attributes:
             attrarray = np.asarray(E.find_attribute('vertices.'+attr))
             attrname = attr + '[' + str(component) + ']'

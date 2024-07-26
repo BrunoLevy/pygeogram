@@ -202,9 +202,13 @@ class GraphiteApp:
           slider enough time to reach the last line in the terminal
         @param[in] msg the message to be printed
         """
-        self.message = self.message + msg
-        self.message_changed_frames = 3 # needs three frames for SetScrollY()
-                                        # to do the job
+        if(False): # debug mode
+            print(msg)
+            self.message_changed_frames = 0
+        else:
+            self.message = self.message + msg
+            self.message_changed_frames = 3 # needs three frames for SetScrollY()
+                                            # to do the job
 
     #====== Main elements of GUI ==========================================
 
