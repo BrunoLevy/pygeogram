@@ -122,6 +122,11 @@ class GraphiteApp:
         # Views
         self.scene_graph_view = SceneGraphView(self.scene_graph)
 
+        # In debug mode, all messages are displayed in standard output
+        # rather than in-app terminal. This helps debugging when a problem
+        # comes from a refresh triggered by a message display.
+        self.debug_mode = False
+
     #====== Main application loop ==========================================
 
     def run(self,args):
@@ -202,7 +207,7 @@ class GraphiteApp:
           slider enough time to reach the last line in the terminal
         @param[in] msg the message to be printed
         """
-        if(False): # debug mode
+        if(self.debug_mode): # see comment in constructor
             print(msg)
             self.message_changed_frames = 0
         else:
