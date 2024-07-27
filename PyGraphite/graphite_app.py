@@ -9,6 +9,8 @@ from auto_gui import MenuMap, ArgList, AutoGUI, PyAutoGUI
 from polyscope_views import SceneGraphView
 from mesh_grob_ops import MeshGrobOps
 
+from imgui_ext import FileDialog
+
 #=========================================================================
 
 class GraphiteApp:
@@ -127,6 +129,8 @@ class GraphiteApp:
         # comes from a refresh triggered by a message display.
         self.debug_mode = False
 
+        self.test_file_dlg = None # current test
+
     #====== Main application loop ==========================================
 
     def run(self,args):
@@ -199,6 +203,7 @@ class GraphiteApp:
         imgui.End()
         self.draw_terminal_window()
         self.draw_progressbar_window()
+        self.draw_test_file_dlg()
 
     def print(self, msg: str):
         """
@@ -216,6 +221,12 @@ class GraphiteApp:
                                             # to do the job
 
     #====== Main elements of GUI ==========================================
+
+    def draw_test_file_dlg(self):
+        if self.test_file_dlg == None:
+            self.test_file_dlg = FileDialog(False, 'my_file.txt')
+            self.test_file_dlg.show()
+        self.test_file_dlg.draw()
 
     def draw_terminal_window(self):
         """
@@ -293,11 +304,10 @@ class GraphiteApp:
         # to keep the order of the objects.
         objects = []
         for i in range(self.scene_graph.nb_children):
-            objects.append(self.scene_graph.ith_child(i).name)
+            objects.append(self.scene_graph.ith_child(i))
 
         imgui.BeginListBox('##Objects',[-1,200])
-        for objname in objects:
-            object = getattr(self.scene_graph.objects,objname)
+        for object in objects:
             self.draw_object_GUI(object)
         imgui.EndListBox()
 
