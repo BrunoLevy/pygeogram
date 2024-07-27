@@ -16,17 +16,18 @@ class FileDialog:
         self.files = []
         self.extensions = []
         self.show_hidden = False
-        self.current_file = None
-        self.scaling = 1.0     # scaling factor for GUI (depends on font size)
+        self.current_file = ''
+        self.scaling = 1.0 # scaling factor for GUI (depends on font size)
         self.footer_size = 35.0 * self.scaling
         self.pinned = False
+        self.are_you_sure = False
 
     def draw(self):
         if not self.visible:
             return
 
         label = ('Save as...##' if self.save_mode else 'Load...##')
-        label = label + str(hash(self))
+        label = label + str(hash(self)) # make sure label is unique
 
         imgui.SetNextWindowPos([700,10],imgui.ImGuiCond_Once)
         imgui.SetNextWindowSize([400,415],imgui.ImGuiCond_Once)
@@ -36,6 +37,7 @@ class FileDialog:
         self.draw_files_and_directories()
         self.draw_footer()
         imgui.End()
+        self.draw_are_you_sure()
 
     def draw_header(self):
         if imgui.Button('Parent'):
@@ -102,24 +104,93 @@ class FileDialog:
         imgui.SameLine()
         imgui.BeginChild('##files', panelsize, True)
         for f in sorted(self.files):
-            _,sel = imgui.Selectable(f, self.current_file == f)
+            sel,_ = imgui.Selectable(
+                f, self.current_file == f,
+                imgui.ImGuiSelectableFlags_AllowDoubleClick
+            )
             if sel:
                 self.current_file = f
+                if imgui.IsMouseDoubleClicked(0):
+                    self.file_selected()
         imgui.EndChild()
 
     def draw_footer(self):
+        save_btn_label = 'Save' if self.save_mode else 'Load'
+        save_btn_label = save_btn_label + '##' + str(hash(self))
+        if imgui.Button(save_btn_label):
+            self.file_selected()
+        imgui.SameLine()
+        imgui.PushItemWidth(
+            -80.0*self.scaling if self.save_mode else -5.0 * self.scaling
+        )
+        sel,self.current_file = imgui.InputText(
+            '##filename##' + str(hash(self)),
+            self.current_file,
+            imgui.ImGuiInputTextFlags_EnterReturnsTrue
+        )
+        if sel:
+            self.file_selected()
+        imgui.PopItemWidth()
+        # Keep auto focus on the input box
+        if imgui.IsItemHovered():
+            # Auto focus previous widget
+            imgui.SetKeyboardFocusHere(-1)
+
+    def draw_are_you_sure(self):
         None
 
     def show(self):
         self.update_files()
         self.visible = True
 
+    def hide(self):
+        self.visible = False
+
     def set_path(self, path : str):
         self.path = os.path.normpath(os.path.join(self.path, path))
         self.update_files()
 
+    def get_and_reset_selected_file():
+        """
+          @brief Gets the selected file if any and resets it to the empty string
+          @return the selected file if there is any or empty string otherwise.
+        """
+        result = self.selected_file
+        self.selected_file = ''
+        return result
+
     def set_extensions(self, extensions : list):
+        """
+         @brief Defines the file extensions managed by this FileDialog.
+         @param[in] extensions a list of extensions, without the dot '.'.
+        """
         self.extensions = extensions
+
+    def set_save_mode(save_mode : bool):
+        """
+          @brief Sets whether this file dialog is for
+           saving file.
+          @details If this file dialog is for saving file,
+           then the user can enter the name of a non-existing
+           file, else he can only select existing files.
+          @param[in] x True if this file dialog is for
+           saving files.
+        """
+        self.save_mode = save_mode
+
+    def file_selected(self):
+        """ Called whenever a file is selected """
+        path_file = os.path.join(self.path, self.current_file)
+        if self.save_mode:
+            if os.path.isfile(path_file):
+                self.are_you_sure = True
+                return
+            else:
+                self.selected_file = path_file
+        else:
+            self.selected_file = path_file
+        if not self.pinned:
+            self.hide()
 
     def update_files(self):
         self.files = []
