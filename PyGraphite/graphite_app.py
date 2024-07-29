@@ -274,9 +274,7 @@ class GraphiteApp:
                     exts = gom.get_environment_value(
                         'grob_read_extensions'
                     ).split(';')
-                    if '' in exts:
-                        exts.remove('')
-                    exts = [ ext.removeprefix('*.') for ext in exts]
+                    exts = [ ext.removeprefix('*.') for ext in exts if ext != '']
                     imgui_ext.OpenFileDialog(
                         'Load...',
                         exts,
@@ -438,9 +436,7 @@ class GraphiteApp:
                 exts = gom.get_environment_value(
                     object.meta_class.name + '_write_extensions'
                 ).split(';')
-                if '' in exts:
-                    exts.remove('')
-                exts = [ ext.removeprefix('*.') for ext in exts]
+                exts = [ ext.removeprefix('*.') for ext in exts if ext != '' ]
                 imgui_ext.OpenFileDialog(
                     'Save object...',
                     exts,
@@ -668,7 +664,7 @@ class SceneGraphGraphiteCommands:
 
     def clear_scenegraph(
             interface : OGF.Interface,
-            method    : str,
+            method    : str
     ):
         """ @brief deletes all objects in the scene-graph """
         interface.grob.clear()
