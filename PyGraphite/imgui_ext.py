@@ -3,7 +3,11 @@ import os,string
 
 
 class FileDialogImpl:
-    """ @brief A simple file dialog using imgui and os """
+    """
+    @brief   Internal implementation of file dialog
+    @details Do not use directly, use API functions instead
+             imgui_ext.OpenFileDialog() and imgui_ext.FileDialog()
+    """
     def __init__(
             self,
             save_mode: bool = False,
@@ -266,6 +270,15 @@ def OpenFileDialog(
         filename   : str,
         flags      : int
 ):
+    """
+    @brief Create or opens a file dialog
+    @details One needs to call @see FileDialog() to display it afterwards
+    @param[in] label a unique label associated with the dialog
+    @param[in] extensions the list of valid file extensions, without '.'
+    @param[in] filename default filename used for Save dialogs, or ''
+    @param[in] flags one of ImGuiExtFileDialogFlags_Load,
+                            ImGuiExtFileDialogFlags_Save
+    """
     if label in file_dialogs:
         dlg = file_dialogs[label]
     else:
@@ -280,6 +293,14 @@ def OpenFileDialog(
     dlg.show()
 
 def FileDialog(label : str) -> (str, bool):
+    """
+    @brief Draws and handles a file dialog
+    @param[in] label the unique label associated with the dialog. If
+               OpenFileDialog() was called before in the same frame,
+               it will be displayed and handled, else it is ignored.
+    @retval (selected filename,True) if a file was selected
+    @retval ('', False) otherwise
+    """
     if not label in file_dialogs:
         return ('',False)
     dlg = file_dialogs[label]
@@ -288,7 +309,13 @@ def FileDialog(label : str) -> (str, bool):
     return result, (result != '')
 
 def SimpleButton(label: str) -> bool:
-    """ Draws a button without any frame """
+    """
+    @brief Draws a button without any frame
+    @param[in] label the text drawn of the button, what follows '##' is not
+               displayed and used to have a unique ID
+    @retval True if the button was pushed
+    @retval False otherwise
+    """
     txt = label
     off = label.find('##')
     if off != -1:
