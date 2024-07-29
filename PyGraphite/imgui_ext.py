@@ -3,7 +3,7 @@ import os,string
 
 
 class FileDialog:
-    """ A simple file dialog using imgui and os """
+    """ @brief A simple file dialog using imgui and os """
     def __init__(
             self,
             save_mode: bool = False,
@@ -16,13 +16,15 @@ class FileDialog:
         self.files = []
         self.extensions = []
         self.show_hidden = False
-        self.current_file = ''
+        self.current_file = default_filename
+        self.selected_file = ''
         self.scaling = 1.0 # scaling factor for GUI (depends on font size)
         self.footer_size = 35.0 * self.scaling
         self.pinned = False
         self.are_you_sure = False
 
     def draw(self):
+        """ @brief Draws and handles the GUI """
         if not self.visible:
             return
 
@@ -40,6 +42,11 @@ class FileDialog:
         self.draw_are_you_sure()
 
     def draw_header(self):
+        """
+           @brief Draws the top part of the window, with
+              the Parent/Home/Refresh/pin buttons and the
+              clickable current path
+        """
         if imgui.Button('Parent'):
             self.set_path('..')
         imgui.SameLine()
@@ -54,7 +61,7 @@ class FileDialog:
         imgui.Dummy([w, 1.0])
         imgui.SameLine()
         if not self.save_mode:
-            if imgui.Button('O' if self.pinned else '(-'):
+            if imgui_ext.SimpleButton('O' if self.pinned else '(-'):
                 self.pinned = not self.pinned
             if imgui.IsItemHovered():
                 imgui.SetTooltip('pin dialog')
@@ -77,6 +84,7 @@ class FileDialog:
             imgui.SameLine()
 
     def draw_disk_drives(self):
+        """ @brief Draws buttons to select disk drives under Windows """
         if os.name != 'nt':
             return
         for drive in string.ascii_uppercase:
@@ -90,6 +98,7 @@ class FileDialog:
         imgui.Text('')
 
     def draw_files_and_directories(self):
+        """ @brief Draws two panels with the list of files and directories """
         panelsize = [
             imgui.GetWindowWidth()*0.5-10.0*self.scaling,
             -self.footer_size
@@ -115,6 +124,7 @@ class FileDialog:
         imgui.EndChild()
 
     def draw_footer(self):
+        """ @brief draws footer with save/load btn and filename text entry """
         save_btn_label = 'Save' if self.save_mode else 'Load'
         save_btn_label = save_btn_label + '##' + str(hash(self))
         if imgui.Button(save_btn_label):
@@ -137,7 +147,29 @@ class FileDialog:
             imgui.SetKeyboardFocusHere(-1)
 
     def draw_are_you_sure(self):
-        None
+        """ @brief draws a modal popup if file to save already exists """
+        if self.are_you_sure:
+            imgui.OpenPopup('File exists')
+        if imgui.BeginPopupModal(
+            "File exists", True, imgui.ImGuiWindowFlags_AlwaysAutoResize
+        ):
+            imgui.Text(
+                'File ' + self.current_file +
+                ' already exists\nDo you want to overwrite it ?'
+            )
+            imgui.Separator()
+            if imgui.Button(
+                'Overwrite',
+                [-imgui.GetContentRegionAvail()[0]/2.0, 0.0]
+            ):
+                self.are_you_sure = False
+                imgui.CloseCurrentPopup()
+                self.file_selected(True)
+            imgui.SameLine()
+            if imgui.Button('Cancel', [-1.0, 0.0]):
+                self.are_you_sure = False
+                imgui.CloseCurrentPopup();
+            imgui.EndPopup()
 
     def show(self):
         self.update_files()
@@ -178,17 +210,19 @@ class FileDialog:
         """
         self.save_mode = save_mode
 
-    def file_selected(self):
+    def file_selected(self, overwrite=False):
         """ Called whenever a file is selected """
         path_file = os.path.join(self.path, self.current_file)
         if self.save_mode:
-            if os.path.isfile(path_file):
+            if not overwrite and os.path.isfile(path_file):
                 self.are_you_sure = True
                 return
             else:
                 self.selected_file = path_file
+                print('File selected (write)',path_file)
         else:
             self.selected_file = path_file
+            print('File selected (read)',path_file)
         if not self.pinned:
             self.hide()
 
@@ -205,6 +239,7 @@ class FileDialog:
                     self.directories.append(f)
 
     def show_file(self, f : str) -> bool:
+        """ Tests whether a give file should be shown in the dialog """
         if not self.show_hidden and f.startswith('.'):
             return False
         if len(self.extensions) == 0:
@@ -214,6 +249,7 @@ class FileDialog:
         return ext.lower() in self.extensions
 
     def show_directory(self, d : str) -> bool:
+        """ Tests whether a give directory should be shown in the dialog """
         return (self.show_hidden or not d.startswith('.'))
 
 
@@ -222,7 +258,37 @@ class imgui_ext:
     @brief Functions to extend Dear Imgui
     """
 
+    file_dialogs = dict()
+    ImGuiExtFileDialogFlags_Load = 1
+    ImGuiExtFileDialogFlags_Save = 2
+
+    def OpenFileDialog(
+            label      : str,
+            extensions : list,
+            filename   : str,
+            flags      : int
+    ):
+        if label in imgui_ext.file_dialogs:
+            dlg = imgui_ext[label]
+        else:
+            dlg = FileDialog()
+            imgui_ext.file_dialogs[label] = dlg
+        dlg.set_extensions(extensions)
+        if flags == ImGuiExtFileDialogFlags_Save:
+            dlg.set_save_mode(True)
+            dlg.set_default_filename(filename)
+        else:
+            dlg.set_save_mode(False)
+        dlg.show()
+
+    def FileDialog(label : str) -> (str, bool):
+        if not label in imgui_ext.file_dialogs:
+            return ('',False)
+        result = imgui_ext.file_dialogs[label].get_and_reset_selected_file()
+        return result, (result != '')
+
     def SimpleButton(label: str) -> bool:
+        """ Draws a button without any frame """
         txt = label
         off = label.find('##')
         if off != -1:

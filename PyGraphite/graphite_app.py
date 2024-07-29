@@ -224,7 +224,7 @@ class GraphiteApp:
 
     def draw_test_file_dlg(self):
         if self.test_file_dlg == None:
-            self.test_file_dlg = FileDialog(False, 'my_file.txt')
+            self.test_file_dlg = FileDialog(True, 'my_file.txt')
             self.test_file_dlg.show()
         self.test_file_dlg.draw()
 
