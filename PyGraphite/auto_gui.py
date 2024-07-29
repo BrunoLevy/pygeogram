@@ -585,7 +585,7 @@ class PyAutoGUI:
     def register_enum(name: str, values: list):
         """
         @brief Declares a new enum type in the Graphite object model
-        @param[in] str the name of the enum, for instance, 'OGF::MyEnumType'.
+        @param[in] name the name of the enum, for instance, 'OGF::MyEnumType'.
            Then it is accessible using OGF.MyEnumType
         @param[in] values a list with all the symbolic names of the enum values
         @return the created meta-type for the enum

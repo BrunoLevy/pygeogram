@@ -436,7 +436,7 @@ class GraphiteApp:
 
             if imgui.MenuItem('save object'):
                 exts = gom.get_environment_value(
-                    object.meta_class.name + '_read_extensions'
+                    object.meta_class.name + '_write_extensions'
                 ).split(';')
                 if '' in exts:
                     exts.remove('')
