@@ -2,7 +2,7 @@ import polyscope.imgui as imgui
 import os,string
 
 
-class FileDialog:
+class FileDialogImpl:
     """ @brief A simple file dialog using imgui and os """
     def __init__(
             self,
@@ -61,7 +61,7 @@ class FileDialog:
         imgui.Dummy([w, 1.0])
         imgui.SameLine()
         if not self.save_mode:
-            if imgui_ext.SimpleButton('O' if self.pinned else '(-'):
+            if SimpleButton('O' if self.pinned else '(-'):
                 self.pinned = not self.pinned
             if imgui.IsItemHovered():
                 imgui.SetTooltip('pin dialog')
@@ -74,7 +74,7 @@ class FileDialog:
             if (imgui.GetContentRegionAvail()[0] <
                 imgui.CalcTextSize(d)[0] + 10.0 * self.scaling):
                 imgui.NewLine()
-            if imgui_ext.SimpleButton( d + '##path' + str(i)):
+            if SimpleButton( d + '##path' + str(i)):
                 new_path = os.sep.join(path[0:i+1])
                 if len(path[0]) < 2 or path[0][1] != ':':
                     new_path = os.sep + new_path
@@ -182,7 +182,10 @@ class FileDialog:
         self.path = os.path.normpath(os.path.join(self.path, path))
         self.update_files()
 
-    def get_and_reset_selected_file():
+    def set_default_filename(self, filename : str):
+        self.current_file = filename
+
+    def get_and_reset_selected_file(self):
         """
           @brief Gets the selected file if any and resets it to the empty string
           @return the selected file if there is any or empty string otherwise.
@@ -193,12 +196,12 @@ class FileDialog:
 
     def set_extensions(self, extensions : list):
         """
-         @brief Defines the file extensions managed by this FileDialog.
+         @brief Defines the file extensions managed by this FileDialogImpl.
          @param[in] extensions a list of extensions, without the dot '.'.
         """
         self.extensions = extensions
 
-    def set_save_mode(save_mode : bool):
+    def set_save_mode(self,save_mode : bool):
         """
           @brief Sets whether this file dialog is for
            saving file.
@@ -253,46 +256,43 @@ class FileDialog:
         return (self.show_hidden or not d.startswith('.'))
 
 
-class imgui_ext:
-    """
-    @brief Functions to extend Dear Imgui
-    """
+file_dialogs = dict()
+ImGuiExtFileDialogFlags_Load = 1
+ImGuiExtFileDialogFlags_Save = 2
 
-    file_dialogs = dict()
-    ImGuiExtFileDialogFlags_Load = 1
-    ImGuiExtFileDialogFlags_Save = 2
+def OpenFileDialog(
+        label      : str,
+        extensions : list,
+        filename   : str,
+        flags      : int
+):
+    if label in file_dialogs:
+        dlg = file_dialogs[label]
+    else:
+        dlg = FileDialogImpl()
+        file_dialogs[label] = dlg
+    dlg.set_extensions(extensions)
+    if flags == ImGuiExtFileDialogFlags_Save:
+        dlg.set_save_mode(True)
+        dlg.set_default_filename(filename)
+    else:
+        dlg.set_save_mode(False)
+    dlg.show()
 
-    def OpenFileDialog(
-            label      : str,
-            extensions : list,
-            filename   : str,
-            flags      : int
-    ):
-        if label in imgui_ext.file_dialogs:
-            dlg = imgui_ext[label]
-        else:
-            dlg = FileDialog()
-            imgui_ext.file_dialogs[label] = dlg
-        dlg.set_extensions(extensions)
-        if flags == ImGuiExtFileDialogFlags_Save:
-            dlg.set_save_mode(True)
-            dlg.set_default_filename(filename)
-        else:
-            dlg.set_save_mode(False)
-        dlg.show()
+def FileDialog(label : str) -> (str, bool):
+    if not label in file_dialogs:
+        return ('',False)
+    dlg = file_dialogs[label]
+    dlg.draw()
+    result = dlg.get_and_reset_selected_file()
+    return result, (result != '')
 
-    def FileDialog(label : str) -> (str, bool):
-        if not label in imgui_ext.file_dialogs:
-            return ('',False)
-        result = imgui_ext.file_dialogs[label].get_and_reset_selected_file()
-        return result, (result != '')
-
-    def SimpleButton(label: str) -> bool:
-        """ Draws a button without any frame """
-        txt = label
-        off = label.find('##')
-        if off != -1:
-            txt = txt[0:off]
-        label_size = imgui.CalcTextSize(txt, None, True)
-        _,sel=imgui.Selectable(label, False, 0, label_size)
-        return sel
+def SimpleButton(label: str) -> bool:
+    """ Draws a button without any frame """
+    txt = label
+    off = label.find('##')
+    if off != -1:
+        txt = txt[0:off]
+    label_size = imgui.CalcTextSize(txt, None, True)
+    _,sel=imgui.Selectable(label, False, 0, label_size)
+    return sel

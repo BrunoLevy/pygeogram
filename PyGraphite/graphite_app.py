@@ -9,7 +9,7 @@ from auto_gui import MenuMap, ArgList, AutoGUI, PyAutoGUI
 from polyscope_views import SceneGraphView
 from mesh_grob_ops import MeshGrobOps
 
-from imgui_ext import FileDialog
+import imgui_ext
 
 #=========================================================================
 
@@ -124,12 +124,14 @@ class GraphiteApp:
         # Views
         self.scene_graph_view = SceneGraphView(self.scene_graph)
 
+        # Load/Save
+        self.file_to_load = ''
+        self.file_to_save = ''
+
         # In debug mode, all messages are displayed in standard output
         # rather than in-app terminal. This helps debugging when a problem
         # comes from a refresh triggered by a message display.
         self.debug_mode = False
-
-        self.test_file_dlg = None # current test
 
     #====== Main application loop ==========================================
 
@@ -203,7 +205,7 @@ class GraphiteApp:
         imgui.End()
         self.draw_terminal_window()
         self.draw_progressbar_window()
-        self.draw_test_file_dlg()
+        self.draw_dialogs()
 
     def print(self, msg: str):
         """
@@ -221,12 +223,6 @@ class GraphiteApp:
                                             # to do the job
 
     #====== Main elements of GUI ==========================================
-
-    def draw_test_file_dlg(self):
-        if self.test_file_dlg == None:
-            self.test_file_dlg = FileDialog(True, 'my_file.txt')
-            self.test_file_dlg.show()
-        self.test_file_dlg.draw()
 
     def draw_terminal_window(self):
         """
@@ -272,6 +268,26 @@ class GraphiteApp:
         """
         if imgui.BeginMenuBar():
             if imgui.BeginMenu('File'):
+                if imgui.MenuItem('Load...'):
+                    exts = gom.get_environment_value(
+                        'grob_read_extensions'
+                    ).split(';')
+                    exts.remove('')
+                    exts = [ ext.removeprefix('*.') for ext in exts]
+                    imgui_ext.OpenFileDialog(
+                        'Load...',
+                        exts,
+                        '',
+                        imgui_ext.ImGuiExtFileDialogFlags_Load
+                    )
+                if imgui.MenuItem('Save scene'):
+                    imgui_ext.OpenFileDialog(
+                        'Save scene',
+                        ['graphite'],
+                        'scene.graphite',
+                        imgui_ext.ImGuiExtFileDialogFlags_Save
+                    )
+                imgui.Separator()
                 # SceneGraphGraphiteCommands: Implemented in Python, atr
                 # the end of this file, and registered in run()
                 request = AutoGUI.draw_interface_menuitems(
@@ -535,6 +551,10 @@ class GraphiteApp:
         if imgui.IsItemHovered():
             imgui.SetTooltip('Reset factory settings')
 
+    def draw_dialogs(self):
+        self.file_to_load,_ = imgui_ext.FileDialog('Load...')
+        self.file_to_save,_ = imgui_ext.FileDialog('Save scene')
+
     def handle_queued_command(self):
         """
         @brief Executes the Graphite command if it was marked for execution
@@ -552,6 +572,15 @@ class GraphiteApp:
             self.reset_command()
             self.queued_close_command = False
 
+        if(self.file_to_load != ''):
+            self.scene_graph.load_object(self.file_to_load)
+            ps.reset_camera_to_home_view()
+            self.file_to_load = ''
+
+        if(self.file_to_save != ''):
+            self.scene_graph_view.copy_polyscope_params_to_grob()
+            self.scene_graph.save(self.file_to_save)
+            self.file_to_save = ''
 
     def get_grob(self,request: OGF.Request) -> OGF.Grob:
         """
@@ -600,31 +629,7 @@ class GraphiteApp:
 #============================================================================
 
 class SceneGraphGraphiteCommands:
-    """ The commands in the fist section of the File menu """
-
-    def load(
-            interface : OGF.Interface,
-            method    : str,
-            filename  : str
-    ):
-        """
-        @brief loads a file
-        @param[in] filename object file name or graphite scenegraph file
-        """
-        interface.grob.load_object(filename)
-        ps.reset_camera_to_home_view()
-
-    def save_scene(
-            interface       : OGF.Interface,
-            method          : str,
-            scene_filename  : str
-    ):
-        """
-        @brief saves a file
-        @param[in] scene_filename = scene.graphite graphite scenegraph file
-        """
-        graphite.scene_graph_view.copy_polyscope_params_to_grob()
-        interface.grob.save(scene_filename)
+    """ The commands in the second section of the File menu """
 
     def create_object(
             interface : OGF.Interface,
