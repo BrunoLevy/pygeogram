@@ -125,8 +125,10 @@ class GraphiteApp:
         self.scene_graph_view = SceneGraphView(self.scene_graph)
 
         # Load/Save
-        self.file_to_load = ''
-        self.file_to_save = ''
+        self.scene_file_to_load = ''
+        self.scene_file_to_save = ''
+        self.object_file_to_save = ''
+        self.object_to_save = None
 
         # In debug mode, all messages are displayed in standard output
         # rather than in-app terminal. This helps debugging when a problem
@@ -193,7 +195,7 @@ class GraphiteApp:
         """ @brief Draws Graphite GUI """
         imgui.SetNextWindowPos([340,10],imgui.ImGuiCond_Once)
         imgui.SetNextWindowSize(
-            [300,ps.get_window_size()[1]-20],imgui.ImGuiCond_Once
+            [300,ps.get_window_size()[1]-20], imgui.ImGuiCond_Once
         )
         unfolded,_ = imgui.Begin(
             'Graphite',True,imgui.ImGuiWindowFlags_MenuBar
@@ -272,7 +274,8 @@ class GraphiteApp:
                     exts = gom.get_environment_value(
                         'grob_read_extensions'
                     ).split(';')
-                    exts.remove('')
+                    if '' in exts:
+                        exts.remove('')
                     exts = [ ext.removeprefix('*.') for ext in exts]
                     imgui_ext.OpenFileDialog(
                         'Load...',
@@ -432,9 +435,19 @@ class GraphiteApp:
                 self.rename_new = new_object.name
 
             if imgui.MenuItem('save object'):
-                view = self.scene_graph_view.get_view(object)
-                view.copy_polyscope_params_to_grob()
-                self.set_command(object.save)
+                exts = gom.get_environment_value(
+                    object.meta_class.name + '_read_extensions'
+                ).split(';')
+                if '' in exts:
+                    exts.remove('')
+                exts = [ ext.removeprefix('*.') for ext in exts]
+                imgui_ext.OpenFileDialog(
+                    'Save object...',
+                    exts,
+                    object.name + '.' + exts[0],
+                    imgui_ext.ImGuiExtFileDialogFlags_Save
+                )
+                self.object_to_save = object
 
             if imgui.MenuItem('commit transform'):
                 self.scene_graph_view.get_view(object).commit_transform()
@@ -552,8 +565,9 @@ class GraphiteApp:
             imgui.SetTooltip('Reset factory settings')
 
     def draw_dialogs(self):
-        self.file_to_load,_ = imgui_ext.FileDialog('Load...')
-        self.file_to_save,_ = imgui_ext.FileDialog('Save scene')
+        self.scene_file_to_load,_ = imgui_ext.FileDialog('Load...')
+        self.scene_file_to_save,_ = imgui_ext.FileDialog('Save scene')
+        self.object_file_to_save,_ = imgui_ext.FileDialog('Save object...')
 
     def handle_queued_command(self):
         """
@@ -572,15 +586,23 @@ class GraphiteApp:
             self.reset_command()
             self.queued_close_command = False
 
-        if(self.file_to_load != ''):
-            self.scene_graph.load_object(self.file_to_load)
+        if self.scene_file_to_load != '':
+            self.scene_graph.load_object(self.scene_file_to_load)
             ps.reset_camera_to_home_view()
-            self.file_to_load = ''
+            self.scene_file_to_load = ''
 
-        if(self.file_to_save != ''):
+        if self.scene_file_to_save != '':
             self.scene_graph_view.copy_polyscope_params_to_grob()
-            self.scene_graph.save(self.file_to_save)
-            self.file_to_save = ''
+            self.scene_graph.save(self.scene_file_to_save)
+            self.scene_file_to_save = ''
+
+        if self.object_file_to_save != '' and self.object_to_save != None:
+            print('object_file_to_save', self.object_file_to_save)
+            view = self.scene_graph_view.get_view(self.object_to_save)
+            view.copy_polyscope_params_to_grob()
+            self.object_to_save.save(self.object_file_to_save)
+            self.object_file_to_save = ''
+            self.object_to_save = None
 
     def get_grob(self,request: OGF.Request) -> OGF.Grob:
         """

@@ -226,10 +226,8 @@ class FileDialogImpl:
                 return
             else:
                 self.selected_file = path_file
-                print('File selected (write)',path_file)
         else:
             self.selected_file = path_file
-            print('File selected (read)',path_file)
         if not self.pinned:
             self.hide()
 
