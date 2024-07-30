@@ -117,8 +117,9 @@ class MeshGrobPolyScopeCommands:
         """
         grob = interface.grob
         pts = np.asarray(grob.I.Editor.get_points())
-        pts [:,:]= pts + howmuch * np.random.rand(*pts.shape)
+        pts += howmuch * np.random.rand(*pts.shape)
         grob.update()
+
 
     def inflate(
         interface : OGF.Interface,
@@ -127,7 +128,7 @@ class MeshGrobPolyScopeCommands:
     ):
         """
         @brief Inflates a surface by moving its vertices along the normal
-        @param[in] howmuch = 0.01 inflating amount
+        @param[in] howmuch = 0.1 inflating amount
         @menu /Surface
         """
         grob = interface.grob
