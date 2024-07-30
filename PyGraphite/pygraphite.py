@@ -120,6 +120,22 @@ class MeshGrobPolyScopeCommands:
         pts [:,:]= pts + howmuch * np.random.rand(*pts.shape)
         grob.update()
 
+    def inflate(
+        interface : OGF.Interface,
+        method    : str,
+        howmuch   : float
+    ):
+        """
+        @brief Inflates a surface by moving its vertices along the normal
+        @param[in] howmuch = 0.01 inflating amount
+        @menu /Surface
+        """
+        grob = interface.grob
+        grob.I.Attributes.compute_vertices_normals('normal')
+        pts = np.asarray(grob.I.Editor.get_points())
+        N   = np.asarray(grob.I.Editor.find_attribute('vertices.normal'))
+        pts += howmuch * N
+        grob.update()
 
     def show_component_attribute(
         interface : OGF.Interface,
@@ -133,7 +149,6 @@ class MeshGrobPolyScopeCommands:
         @param[in] component index of the component to be extracted
         @menu /Attributes/Polyscope
         """
-        None
         grob = interface.grob
         view = graphite.scene_graph_view.get_view(grob)
         view.show_component_attribute(attribute,component)
