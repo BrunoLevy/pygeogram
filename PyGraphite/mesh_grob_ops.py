@@ -11,13 +11,7 @@ class MeshGrobOps:
         @return pmin,pmax the bounds, as numpy arrays
         """
         vertices = np.asarray(o.I.Editor.get_points())
-        pmin=np.array(
-            [np.min(vertices[:,0]),np.min(vertices[:,1]),np.min(vertices[:,2])]
-        )
-        pmax=np.array(
-            [np.max(vertices[:,0]),np.max(vertices[:,1]),np.max(vertices[:,2])]
-        )
-        return pmin, pmax
+        return np.min(vertices,0), np.max(vertices,0)
 
     def get_object_center(o: OGF.MeshGrob) -> np.ndarray:
         """
