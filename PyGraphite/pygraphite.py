@@ -44,14 +44,16 @@ PyAutoGUI.register_enum(
 # The name should be something like MeshGrobXXXCommands
 class MeshGrobPolyScopeCommands:
 
+    # You can add your own functions here, take a look at
+    # the following ones to have an idea of how to do that.
     # Python functions declared to Graphite need type hints,
     # so that the GUI can be automatically generated.
     # There are always two additional arguments that appear first:
-    #   interface: the target of the function call
-    #   method: a string with the name of the method called. It can be used
-    #   to dispatch several slots to the same function
+    # -interface: the target of the function call
+    # -method: a string with the name of the method called. It can be used
+    #  to dispatch several slots to the same function (but we don't do that here)
     # Note that Python functions declared to Graphite do not take self as
-    #   argument (they are like C++ static class functions)
+    #  argument (they are like C++ static class functions)
     # Note the default value for the 'center' arg in the docstring
     # (it would have been better to let one put it with type hints,
     #  but I did not figure out a way of getting it from there)
@@ -80,6 +82,7 @@ class MeshGrobPolyScopeCommands:
             MeshGrobOps.translate_object(grob, -C)
 
         # points array can be modified in-place !
+        # (for that, note pts_array[:,[0,1,2]] instead of just pts_array)
         pts_array = np.asarray(grob.I.Editor.get_points())
         if   axis == 'FLIP_X':
             pts_array[:,0] = -pts_array[:,0]
@@ -137,6 +140,7 @@ class MeshGrobPolyScopeCommands:
         N   = np.asarray(grob.I.Editor.find_attribute('vertices.normal'))
         pts += howmuch * N
         grob.update()
+
 
     def show_component_attribute(
         interface : OGF.Interface,

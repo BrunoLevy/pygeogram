@@ -27,25 +27,23 @@ class MeshGrobOps:
         """
         pmin,pmax = MeshGrobOps.get_object_bbox(o)
         return 0.5*(pmin+pmax)
-                
+
     def translate_object(o: OGF.MeshGrob, T: np.ndarray):
-        """ 
-        @brief Applies a translation to object's vertices 
+        """
+        @brief Applies a translation to object's vertices
         @details Does not call o.update(), it is caller's responsibility
         @param[in,out] o the MeshGrob to be transformed
         @param[in] T the translation vector as a numpy array
         """
         vertices = np.asarray(o.I.Editor.get_points())
-        vertices[:,0] = vertices[:,0] + T[0] 
-        vertices[:,1] = vertices[:,1] + T[1] 
-        vertices[:,2] = vertices[:,2] + T[2] 
+        vertices += T
 
     def transform_object(o: OGF.MeshGrob, xform: np.ndarray):
-        """ 
-        @brief Applies a 4x4 homogeneous coord transform to object's vertices 
+        """
+        @brief Applies a 4x4 homogeneous coord transform to object's vertices
         @details Does not call o.update(), it is caller's responsibility
         @param[in,out] o the MeshGrob to be transformed
-        @param[in] xform the 4x4 homogeneous coordinates transform 
+        @param[in] xform the 4x4 homogeneous coordinates transform
            as a numpy array
         """
         # if xform is identity, nothing to do
@@ -64,4 +62,3 @@ class MeshGrobOps:
         # Could be written also in 1 line only (but less legible I think):
         #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
         np.copyto(object_vertices,vertices)       # inject into graphite object
-
