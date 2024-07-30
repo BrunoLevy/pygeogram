@@ -5,7 +5,6 @@
 #  - Maybe the same "projection cube" as in Graphite to choose view
 #  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
 #  - visualize vector fields
-#  - a basic file browser
 #  - commands that take attributes, get list from current object, as in Graphite
 #      (parse special attributes)
 #  - I need a console to enter Python commands, with autocompletion of course
@@ -57,10 +56,10 @@ class MeshGrobPolyScopeCommands:
     # (it would have been better to let one put it with type hints,
     #  but I did not figure out a way of getting it from there)
     def flip_or_rotate(
-            interface : OGF.Interface,
-            method    : str,
-            axis      : OGF.FlipAxis, # the new enum created above
-            center    : bool
+        interface : OGF.Interface,
+        method    : str,
+        axis      : OGF.FlipAxis, # the new enum created above
+        center    : bool
     ):
         # docstring is used to generate the tooltip, menu, and have additional
         # information attached to the "custom attributes" of the MetaMethod.
@@ -123,10 +122,10 @@ class MeshGrobPolyScopeCommands:
 
 
     def show_component_attribute(
-            interface : OGF.Interface,
-            method    : str,
-            attribute : str,
-            component : OGF.index_t
+        interface : OGF.Interface,
+        method    : str,
+        attribute : str,
+        component : OGF.index_t
     ):
         """
         @brief sends a component of a vector attribute to Polyscope

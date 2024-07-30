@@ -591,17 +591,15 @@ class PyAutoGUI:
         @return the created meta-type for the enum
         """
         menum = OGF.MetaEnum.create(name)
-        index = 0
-        for value in values:
+        for index,value in enumerate(values):
             menum.add_value(value, index)
-            index = index + 1
         gom.bind_meta_type(menum)
         return menum
 
     def register_commands(
-            scene_graph: OGF.SceneGraph,
-            grobclass: OGF.MetaClass,
-            methodsclass: type
+        scene_graph: OGF.SceneGraph,
+        grobclass: OGF.MetaClass,
+        methodsclass: type
     ):
         """
         @brief Declares a new commands class in the Graphite object model
