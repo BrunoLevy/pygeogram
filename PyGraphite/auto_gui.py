@@ -62,7 +62,7 @@ class MenuMap:
         @brief Draws the menus stored in a menumap
         @param[in] o an object of the meta-class given to the constructor
         @param[in] optional menu dict (used internally, uses root if unspecified)
-        @return a request if a menu item was selected
+        @return a request if a menu item was selected or None
         """
         if menudict == None:
             menudict = self.root

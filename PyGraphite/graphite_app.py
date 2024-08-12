@@ -135,6 +135,11 @@ class GraphiteApp:
         # comes from a refresh triggered by a message display.
         self.debug_mode = False
 
+        # Terminal
+        self.shell_cmd = ''
+        self.queued_execute_shell_cmd = False
+        self.focus_shell_cmd = False
+
     #====== Main application loop ==========================================
 
     def run(self,args):
@@ -239,10 +244,25 @@ class GraphiteApp:
             )
             imgui.SetNextWindowSize([600,200],imgui.ImGuiCond_Once)
             _,self.show_terminal = imgui.Begin('Terminal',self.show_terminal)
+            imgui.BeginChild('scrolling',[0.0,-20.0])
             imgui.Text(self.message)
             if self.message_changed_frames > 0:
                 imgui.SetScrollY(imgui.GetScrollMaxY())
                 self.message_changed_frames = self.message_changed_frames - 1
+            imgui.EndChild()
+            imgui.Text('>')
+            imgui.SameLine()
+            imgui.PushItemWidth(-1)
+            if self.focus_shell_cmd:
+                imgui.SetKeyboardFocusHere(0)
+                self.focus_shell_cmd = False
+            sel,self.shell_cmd = imgui.InputText(
+                '##terminal##command', self.shell_cmd,
+                imgui.ImGuiInputTextFlags_EnterReturnsTrue
+            )
+            if sel:
+                self.queued_execute_shell_cmd = True
+            imgui.PopItemWidth()
             imgui.End()
 
     def draw_progressbar_window(self):
@@ -599,6 +619,15 @@ class GraphiteApp:
             self.object_to_save.save(self.object_file_to_save)
             self.object_file_to_save = ''
             self.object_to_save = None
+
+        if self.queued_execute_shell_cmd:
+            try:
+                exec(self.shell_cmd)
+            except Exception as e:
+                self.print('Error: ' + str(e) + '\n')
+            self.queued_execute_shell_cmd = False
+            self.shell_cmd = ''
+            self.focus_shell_cmd = True
 
     def get_grob(self,request: OGF.Request) -> OGF.Grob:
         """

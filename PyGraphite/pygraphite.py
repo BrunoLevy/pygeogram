@@ -10,6 +10,7 @@
 #  - I need a console to enter Python commands, with autocompletion of course
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
+#  - Splitter between scenelist and command
 
 import polyscope as ps, numpy as np # of course we need these two ones
 import sys                          # to get command line args
