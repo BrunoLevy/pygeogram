@@ -8,7 +8,8 @@ OGF = gom.meta_types.OGF
 from auto_gui import MenuMap, ArgList, AutoGUI, PyAutoGUI
 from polyscope_views import SceneGraphView
 from mesh_grob_ops import MeshGrobOps
-
+from terminal import Terminal
+from rlcompleter import Completer
 import imgui_ext
 
 #=========================================================================
@@ -17,33 +18,6 @@ class GraphiteApp:
     """ @brief the Graphite Application class """
 
     #===== Application logic, callbacks ========================================
-
-    def out_CB(self,msg:str):
-        """
-        @brief Message display callback
-        @details Called whenever Graphite wants to display something.
-          It generates a new PolyScope frame. Since commands are invoked outside
-          of a PolyScope frame, and since messages are triggered by commands
-          only, (normally) there can't be nested PolyScope frames.
-        @param[in] msg the message to be displayed
-        """
-        self.print(msg)
-        while self.running and self.message_changed_frames > 0:
-            ps.frame_tick()
-
-    def err_CB(self,msg:str):
-        """
-        @brief Error display callback
-        @details Called whenever Graphite wants to display something.
-          It generates a new PolyScope frame. Since commands are invoked outside
-          of a PolyScope frame, and since messages are triggered by commands
-          only, (normally) there can't be nested PolyScope frames.
-        @param[in] msg the error message to be displayed
-        """
-        self.show_terminal=True # make terminal appear if it was hidden
-        self.print(msg)
-        while self.running and self.message_changed_frames > 0:
-            ps.frame_tick()
 
     def progress_begin_CB(self,taskname:str):
         """
@@ -88,6 +62,11 @@ class GraphiteApp:
 
     def __init__(self):
         """ @brief GraphiteApp constructor """
+        # In debug mode, all messages are displayed in standard output
+        # rather than in-app terminal. This helps debugging when a problem
+        # comes from a refresh triggered by a message display.
+        self.debug_mode = False
+
         self.running = False
 
         self.menu_maps = {}
@@ -103,12 +82,8 @@ class GraphiteApp:
         application = OGF.ApplicationBase.create()
         self.scene_graph.application = application
 
-        # printing callbacks
-        self.message = ''
-        self.message_changed_frames = 0
-        self.show_terminal = True
-        gom.connect(application.out, self.out_CB)
-        gom.connect(application.err, self.err_CB)
+        # terminal
+        self.terminal = Terminal(self)
 
         # progress callbacks
         self.progress_task = None
@@ -130,15 +105,6 @@ class GraphiteApp:
         self.object_file_to_save = ''
         self.object_to_save = None
 
-        # In debug mode, all messages are displayed in standard output
-        # rather than in-app terminal. This helps debugging when a problem
-        # comes from a refresh triggered by a message display.
-        self.debug_mode = False
-
-        # Terminal
-        self.shell_cmd = ''
-        self.queued_execute_shell_cmd = False
-        self.focus_shell_cmd = False
 
     #====== Main application loop ==========================================
 
@@ -160,6 +126,7 @@ class GraphiteApp:
         self.running = True
         quiet_frames = 0
         self.scene_graph.application.start()
+
         while self.running:
             ps.frame_tick()
 
@@ -210,7 +177,7 @@ class GraphiteApp:
             self.draw_scenegraph_GUI()
             self.draw_command()
         imgui.End()
-        self.draw_terminal_window()
+        self.terminal.draw()
         self.draw_progressbar_window()
         self.draw_dialogs()
 
@@ -230,40 +197,6 @@ class GraphiteApp:
                                             # to do the job
 
     #====== Main elements of GUI ==========================================
-
-    def draw_terminal_window(self):
-        """
-        @brief Draws the terminal window
-        @details Handles scrolling to the last line each time a new message
-          is printed
-        @see out_CB(), err_CB()
-        """
-        if self.show_terminal:
-            imgui.SetNextWindowPos(
-                [660,ps.get_window_size()[1]-260],imgui.ImGuiCond_Once
-            )
-            imgui.SetNextWindowSize([600,200],imgui.ImGuiCond_Once)
-            _,self.show_terminal = imgui.Begin('Terminal',self.show_terminal)
-            imgui.BeginChild('scrolling',[0.0,-20.0])
-            imgui.Text(self.message)
-            if self.message_changed_frames > 0:
-                imgui.SetScrollY(imgui.GetScrollMaxY())
-                self.message_changed_frames = self.message_changed_frames - 1
-            imgui.EndChild()
-            imgui.Text('>')
-            imgui.SameLine()
-            imgui.PushItemWidth(-1)
-            if self.focus_shell_cmd:
-                imgui.SetKeyboardFocusHere(0)
-                self.focus_shell_cmd = False
-            sel,self.shell_cmd = imgui.InputText(
-                '##terminal##command', self.shell_cmd,
-                imgui.ImGuiInputTextFlags_EnterReturnsTrue
-            )
-            if sel:
-                self.queued_execute_shell_cmd = True
-            imgui.PopItemWidth()
-            imgui.End()
 
     def draw_progressbar_window(self):
         """
@@ -620,14 +553,7 @@ class GraphiteApp:
             self.object_file_to_save = ''
             self.object_to_save = None
 
-        if self.queued_execute_shell_cmd:
-            try:
-                exec(self.shell_cmd)
-            except Exception as e:
-                self.print('Error: ' + str(e) + '\n')
-            self.queued_execute_shell_cmd = False
-            self.shell_cmd = ''
-            self.focus_shell_cmd = True
+        self.terminal.handle_queued_command()
 
     def get_grob(self,request: OGF.Request) -> OGF.Grob:
         """
