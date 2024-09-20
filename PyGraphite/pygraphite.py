@@ -55,7 +55,7 @@ class MeshGrobPolyScopeCommands:
     #  to dispatch several slots to the same function (but we don't do that here)
     # Note that Python functions declared to Graphite do not take self as
     #  argument (they are like C++ static class functions)
-    # Note the default value for the 'center' arg in the docstring
+    # Note the default value for the 'axis' and 'center' args in the docstring
     # (it would have been better to let one put it with type hints,
     #  but I did not figure out a way of getting it from there)
     def flip_or_rotate(

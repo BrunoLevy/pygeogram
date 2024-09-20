@@ -74,12 +74,12 @@ class GraphiteApp:
         self.queued_execute_command = False # command execution is queued, for
         self.queued_close_command   = False # making it happen out off ps CB
 
-        self.scene_graph = OGF.SceneGraph.create()
+        self.scene_graph = OGF.SceneGraph()
 
         # create a Graphite ApplicationBase. It has the printing and
         # progress callbacks, that are redirected here to some functions
         # (ending with _CB).
-        application = OGF.ApplicationBase.create()
+        application = OGF.ApplicationBase()
         self.scene_graph.application = application
 
         # terminal
@@ -148,7 +148,12 @@ class GraphiteApp:
             if (
                     imgui.GetIO().MouseDown[0] or
                     imgui.GetIO().MouseDown[1] or
-                    imgui.GetIO().MouseDown[2]
+                    imgui.GetIO().MouseDown[2] or
+                    imgui.IsKeyPressed(imgui.ImGuiKey_Tab) or
+                    imgui.IsKeyPressed(imgui.ImGuiKey_UpArrow) or
+                    imgui.IsKeyPressed(imgui.ImGuiKey_DownArrow) or
+                    imgui.IsKeyPressed(imgui.ImGuiKey_RightArrow) or
+                    imgui.IsKeyPressed(imgui.ImGuiKey_LeftArrow)
             ):
                 quiet_frames = 0
             else:

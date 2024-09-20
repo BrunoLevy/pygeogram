@@ -590,7 +590,7 @@ class PyAutoGUI:
         @param[in] values a list with all the symbolic names of the enum values
         @return the created meta-type for the enum
         """
-        menum = OGF.MetaEnum.create(name)
+        menum = OGF.MetaEnum(name)
         for index,value in enumerate(values):
             menum.add_value(value, index)
         gom.bind_meta_type(menum)

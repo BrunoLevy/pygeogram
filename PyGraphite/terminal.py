@@ -1,8 +1,20 @@
 from rlcompleter import Completer
 import polyscope as ps, polyscope.imgui as imgui
+import sys
 import gompy
 
 gom = gompy.interpreter()
+
+#=========================================================================
+
+class GraphiteStream:
+    def __init__(self, func):
+        self.func = func
+    def write(self, string):
+        if string != '\n':
+            self.func(string)
+    def flush(self):
+        return
 
 #=========================================================================
 
@@ -42,6 +54,9 @@ class Terminal:
         application = self.app.scene_graph.application
         gom.connect(application.out, self.out_CB)
         gom.connect(application.err, self.err_CB)
+        sys.stdout = GraphiteStream(gom.out)
+        sys.stderr = GraphiteStream(gom.err)
+        sys.displayhook = gom.out
 
     def draw(self):
         if not self.visible:
@@ -98,7 +113,10 @@ class Terminal:
     def handle_queued_command(self):
         if self.queued_execute_command:
             try:
-                exec(self.command,{'graphite' : self.app, 'imgui' : imgui})
+                exec(
+                    self.command,
+                    {'graphite' : self.app, 'imgui' : imgui}
+                )
             except Exception as e:
                 self.print('Error: ' + str(e) + '\n')
             self.queued_execute_command = False
