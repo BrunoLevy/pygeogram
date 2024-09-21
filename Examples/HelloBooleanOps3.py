@@ -5,6 +5,27 @@ import math
 
 OGF = gom.meta_types.OGF
 scene_graph = OGF.SceneGraph()
+running = True
+op = 1 # the operation, 0: union, 1: intersection, 2: difference
+
+def draw_my_own_window():
+    """
+    Called by Polyscope to draw and handle additional windows
+    """
+    global running, op, scene_graph
+    # The "quit" button
+    if ps.imgui.Button('quit'):
+        running = False
+    # The combo-box to chose the boolean operation
+    ops = ['union','intersection','difference']
+    _,op = ps.imgui.Combo('operation',op,ops)
+    # Display number of vertices and facets in result mesh
+    R = scene_graph.objects.R
+    nv = R.I.Editor.nb_vertices
+    nf = R.I.Editor.nb_facets
+    ps.imgui.Text('Result of boolean operation:')
+    ps.imgui.Text('   vertices: ' + str(nv))
+    ps.imgui.Text('     facets: ' + str(nf))
 
 # ---------------------- Same as before --------------------------------
 
@@ -52,19 +73,24 @@ def show_scene(alpha=0.25):
         center=[-alpha, 0, 0], precision=3
     )
     R = OGF.MeshGrob('R')
-    S1.I.Surface.compute_intersection(S2,R)
+    if op == 0:
+       S1.I.Surface.compute_union(S2,R)
+    elif op == 1:
+       S1.I.Surface.compute_intersection(S2,R)
+    elif op == 2:
+       S1.I.Surface.compute_difference(S2,R)
     register_graphite_objects(scene_graph)
     ps.get_surface_mesh('S1').set_transparency(0.5)
     ps.get_surface_mesh('S2').set_transparency(0.5)
     ps.get_surface_mesh('R').set_edge_width(2)
 
 ps.init()
+# Tell polyscope that it should call our function in each frame
+ps.set_user_callback(draw_my_own_window)
 
-# instead of calling ps.show(), we have our own display loop,
-# that updates the scene at each frame. At the end of the
-# frame, we call ps.frame_tick() to let PolyScope display the frame.
+
 frame = 0
-while True:
+while running:
     frame = frame+1
     show_scene(math.sin(frame*0.1))
     ps.frame_tick()
