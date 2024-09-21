@@ -186,19 +186,19 @@ class GraphiteApp:
         self.draw_progressbar_window()
         self.draw_dialogs()
 
-    def print(self, msg: str):
-        """
-        @brief Prints a message to the terminal window in Graphite
-        @details Triggers graphics update for 3 frames, for leaving the
-          slider enough time to reach the last line in the terminal
-        @param[in] msg the message to be printed
-        """
-        if(self.debug_mode): # see comment in constructor
-            print(msg)
-            self.message_changed_frames = 0
-        else:
-            self.message = self.message + msg
-            self.message_changed_frames = 3 # needs three frames for SetScrollY()
+#    def print(self, msg: str):
+#        """
+#        @brief Prints a message to the terminal window in Graphite
+#        @details Triggers graphics update for 3 frames, for leaving the
+#          slider enough time to reach the last line in the terminal
+#        @param[in] msg the message to be printed
+#        """
+#        if(self.debug_mode): # see comment in constructor
+#            print(msg)
+#            self.message_changed_frames = 0
+#        else:
+#            self.message = self.message + msg
+#            self.message_changed_frames = 3 # needs three frames for SetScrollY()
                                             # to do the job
 
     #====== Main elements of GUI ==========================================
@@ -265,9 +265,9 @@ class GraphiteApp:
                 imgui.EndMenu()
             if imgui.BeginMenu('Windows'):
                 if imgui.MenuItem(
-                    'show terminal', None, self.show_terminal
+                    'show terminal', None, self.terminal.visible
                 ):
-                    self.show_terminal = not self.show_terminal
+                    self.terminal.visible = not self.terminal.visible
                 imgui.EndMenu()
             imgui.EndMenuBar()
 
@@ -551,7 +551,7 @@ class GraphiteApp:
             self.scene_file_to_save = ''
 
         if self.object_file_to_save != '' and self.object_to_save != None:
-            print('object_file_to_save', self.object_file_to_save)
+#           print('object_file_to_save', self.object_file_to_save)
             view = self.scene_graph_view.get_view(self.object_to_save)
             view.copy_polyscope_params_to_grob()
             self.object_to_save.save(self.object_file_to_save)
