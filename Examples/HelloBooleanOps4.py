@@ -2,6 +2,7 @@ import polyscope as ps
 import numpy as np
 import gompy
 import math
+import time
 
 OGF = gom.meta_types.OGF
 scene_graph = OGF.SceneGraph()
@@ -9,12 +10,14 @@ running = True
 op = 1  # the operation, 0: union, 1: intersection, 2: difference
 shape1 = 0; shape2 = 0 # 0: sphere 1: cube 2: icosahedron
 show_input_shapes = True
+animate = True
+frame = 0
 
 def create_shape(shape: int, center: list, name: str) -> OGF.MeshGrob:
     """
     @brief creates a sphere, cube or icosahedron
     @param[in] shape one of 0: sphere, 1: cube, 2: icosahedron
-    @param[in] center the center as a list of 3 coordinates
+    @param[in] center the center as a list of 3 coordinates [x, y, z]
     @param[in] name the name of the mesh in the scene graph and in polyscope
     @return the newly created mesh
     """
@@ -36,13 +39,25 @@ def draw_my_own_window():
     """
     Called by Polyscope to draw and handle additional windows
     """
-    global running, op, shape1, shape2, scene_graph, show_input_shapes
+    global running, op, shape1, shape2, show_input_shapes
+    global animate, frame
     # The "quit" button
     if ps.imgui.Button('quit'):
         running = False
 
     ps.imgui.SameLine()
     _,show_input_shapes = ps.imgui.Checkbox('show inputs',show_input_shapes)
+
+    ps.imgui.SameLine()
+    _,animate = ps.imgui.Checkbox('animate',animate)
+
+    if not animate:
+        ps.imgui.SameLine()
+        if ps.imgui.Button('<'):
+            frame = frame - 1
+        ps.imgui.SameLine()
+        if ps.imgui.Button('>'):
+            frame = frame + 1
 
     # The combo-boxes to chose two shapes
     shapes = ['sphere','cube','icosahedron']
@@ -122,6 +137,9 @@ ps.set_user_callback(draw_my_own_window)
 
 frame = 0
 while running:
-    frame = frame+1
+    if animate:
+        frame = frame+1
     show_scene(math.sin(frame*0.1))
     ps.frame_tick()
+    # Be nice with the CPU/computer, sleep a little bit
+    time.sleep(0.01) # micro-sieste: 1/100th second
