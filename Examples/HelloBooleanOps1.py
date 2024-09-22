@@ -11,7 +11,7 @@ OGF = gom.meta_types.OGF
 
 def register_graphite_object(O: OGF.MeshGrob):
    """
-   Registers a graphite object to Polyscope
+   @brief Registers a graphite object to Polyscope
    @param[in] O the graphite object to be registered
    """
    pts = np.asarray(O.I.Editor.find_attribute('vertices.point'))
@@ -20,7 +20,7 @@ def register_graphite_object(O: OGF.MeshGrob):
 
 def register_graphite_objects(scene_graph: OGF.SceneGraph):
    """
-   Registers all the graphite objects in a scene graph to Polyscope
+   @brief Registers all the graphite objects in a scene graph to Polyscope
    @param[in] scene_graph the Graphite scene graph
    """
    for objname in dir(scene_graph.objects):

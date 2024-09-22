@@ -13,7 +13,7 @@ scene_graph = OGF.SceneGraph()
 
 def register_graphite_object(O: OGF.MeshGrob):
    """
-   Registers a graphite object to Polyscope
+   @brief Registers a graphite object to Polyscope
    @param[in] O the graphite object to be registered
    """
    pts = np.asarray(O.I.Editor.find_attribute('vertices.point'))
@@ -22,7 +22,7 @@ def register_graphite_object(O: OGF.MeshGrob):
 
 def register_graphite_objects(scene_graph: OGF.SceneGraph):
    """
-   Registers all the graphite objects in a scene graph to Polyscope
+   @brief Registers all the graphite objects in a scene graph to Polyscope
    @param[in] scene_graph the Graphite scene graph
    """
    for objname in dir(scene_graph.objects):
@@ -31,7 +31,7 @@ def register_graphite_objects(scene_graph: OGF.SceneGraph):
 # new function to unregister Graphite objects from PolyScope
 def unregister_graphite_objects(scene_graph: OGF.SceneGraph):
    """
-   Unregisters all the graphite objects in a scene graph to Polyscope
+   @brief Unregisters all the graphite objects in a scene graph to Polyscope
    @param[in] scene_graph the Graphite scene graph
    """
    for objname in dir(scene_graph.objects):
@@ -39,9 +39,9 @@ def unregister_graphite_objects(scene_graph: OGF.SceneGraph):
 
 # ----------------------------------------------------------------------
 
-def show_scene(alpha=0.25):
+def draw_scene(alpha=0.25):
     """
-    The function called for each frame
+    @brief The function called for each frame
     @param[in] alpha the shifting amount of both spheres
     """
     unregister_graphite_objects(scene_graph)
@@ -69,5 +69,5 @@ ps.init()
 frame = 0
 while True:
     frame = frame+1
-    show_scene(math.sin(frame*0.1))
+    draw_scene(math.sin(frame*0.1))
     ps.frame_tick()

@@ -9,7 +9,7 @@ OGF = gom.meta_types.OGF # All graphite classes are there, create a shortcut
 
 def register_graphite_object(O: OGF.MeshGrob):
    """
-   Registers a graphite object to Polyscope
+   @brief Registers a graphite object to Polyscope
    @param[in] O the graphite object to be registered
    """
    # One can directly access the points and the triangles in a graphite
@@ -21,7 +21,7 @@ def register_graphite_object(O: OGF.MeshGrob):
 
 def register_graphite_objects(scene_graph: OGF.SceneGraph):
    """
-   Registers all the graphite objects in a scene graph to Polyscope
+   @brief Registers all the graphite objects in a scene graph to Polyscope
    @param[in] scene_graph the Graphite scene graph
    """
    for objname in dir(scene_graph.objects):
