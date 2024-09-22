@@ -1,3 +1,7 @@
+# HelloBooleanOps1:
+# Let us create two spheres and compute their intersections
+# We shall also see how to change Polyscope graphic attributes
+
 import polyscope as ps
 import numpy as np
 import gompy

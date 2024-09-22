@@ -1,3 +1,7 @@
+# HelloBooleanOps0:
+# How to create Graphite objects and display them in Polyscope
+# (there is no boolean op for now)
+
 import polyscope as ps
 import numpy as np
 import gompy

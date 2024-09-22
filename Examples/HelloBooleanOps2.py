@@ -1,3 +1,6 @@
+# HelloBooleanOps2:
+# Computing boolean ops for moving objects is more fun !
+
 import polyscope as ps
 import numpy as np
 import gompy

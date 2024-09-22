@@ -1,3 +1,7 @@
+# HelloBooleanOps3:
+# Adding a new Polyscope window and interactive controls to change the
+# boolean operation
+
 import polyscope as ps
 import numpy as np
 import gompy
