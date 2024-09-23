@@ -469,6 +469,20 @@ class AutoGUI:
         values = gom.get_environment_value('OGF::MeshGrob_instances')
         AutoGUI.combo_box_handler(o, property_name, values, tooltip)
 
+    def OGF__NewMeshGrobName_handler(
+            o: object, property_name: str,
+            mtype: OGF.MeshGrobName, tooltip: str
+    ):
+        """
+        @brief Handles the GUI for a MeshGrobName property in an object
+        @details Displays a pulldown with names of MeshGrobs in SceneGraph
+        @param[in,out] o the object
+        @param[in] property_name the name of the property to be edited
+        @param[in] an optional tooltip to be displayed
+        """
+        values = gom.get_environment_value('OGF::MeshGrob_instances')
+        AutoGUI.editable_combo_box_handler(o, property_name, values, tooltip)
+
     def OGF__VoxelGrobName_handler(
             o: object, property_name: str,
             mtype: OGF.VoxelGrobName, tooltip: str
@@ -536,6 +550,38 @@ class AutoGUI:
         )
         imgui.PopItemWidth()
         setattr(o,property_name,new_value)
+
+    def editable_combo_box_handler(
+            o: object, property_name: str,
+            values: str, tooltip: str
+    ):
+        """
+        @brief Handles the GUI for a property in an object,
+               using a editable combobox
+        @param[in,out] o the object
+        @param[in] property_name the name of the property to be edited
+        @param[in] values a ';'-separated string with all enum values
+        @param[in] an optional tooltip to be displayed
+        """
+        AutoGUI.label(property_name, tooltip)
+        imgui.SameLine()
+        imgui.PushItemWidth(-30)
+        old_value = getattr(o,property_name)
+        sel,new_value = imgui.InputText(
+	    '##properties##1_'+property_name,
+	    old_value
+        )
+        setattr(o,property_name,new_value)
+        imgui.PopItemWidth()
+        imgui.SameLine()
+        if imgui.Button('V##properties##btn_'+property_name):
+            imgui.OpenPopup('##properties##popup_'+property_name)
+
+        if imgui.BeginPopup('##properties##popup_'+property_name):
+            for val in values.split(';'):
+                if imgui.Selectable(val):
+                    setattr(o,property_name,val)
+            imgui.EndPopup()
 
     def combo_box(label: str, values: str, old_value: str) -> tuple:
         """
@@ -679,11 +725,18 @@ class PyAutoGUI:
         """
         if pyfunc.__doc__ == None:
             return
+        advanced = False
         for line in pyfunc.__doc__.split('\n'):
             try:
-                kw,val = line.split(maxsplit=1)
+                try:
+                    kw,val = line.split(maxsplit=1)
+                except:
+                    kw  = line.strip()
+                    val = None
                 kw = kw[1:] # remove leading '@'
-                if kw == 'param[in]':
+                if kw == 'advanced':
+                    advanced = True
+                elif kw == 'param[in]':
                     # get default value from docstring (I'd prefer to get
                     # it from function's signature but it does not seems
                     # to be possible in Python)
@@ -695,6 +748,10 @@ class PyAutoGUI:
                         argname,argdef,argdoc = val.split(maxsplit=2)
                         mslot.set_arg_default_value(argname, argdef)
                     mslot.set_arg_custom_attribute(argname, 'help', argdoc)
+                    if advanced:
+                        mslot.set_arg_custom_attribute(
+                            argname, 'advanced', 'true'
+                        )
                 elif kw == 'brief':
                     mslot.set_custom_attribute('help',val)
                 else:

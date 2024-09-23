@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 # TODO:
+#  - Error messages, lock graphics
 #  - Guizmo appears at a weird location (not always visible)
 #  - Maybe the same "projection cube" as in Graphite to choose view
 #  - multiple PolyScope objects for each Graphite object (points, borders,...) ?
 #  - visualize vector fields
 #  - commands that take attributes, get list from current object, as in Graphite
 #      (parse special attributes)
-#  - I need a console to enter Python commands, with autocompletion of course
 #  - Some messages are not displayed in the tty
 #  - Reset view on first object
 #  - Splitter between scenelist and command
@@ -108,7 +108,6 @@ class MeshGrobPolyScopeCommands:
 
         grob.update() # updates the PolyScope structures in the view
 
-
     def randomize(
         interface : OGF.Interface,
         method    : str,
@@ -123,7 +122,6 @@ class MeshGrobPolyScopeCommands:
         pts = np.asarray(grob.I.Editor.get_points())
         pts += howmuch * np.random.rand(*pts.shape)
         grob.update()
-
 
     def inflate(
         interface : OGF.Interface,
@@ -141,6 +139,75 @@ class MeshGrobPolyScopeCommands:
         N   = np.asarray(grob.I.Editor.find_attribute('vertices.normal'))
         pts += howmuch * N
         grob.update()
+
+    def mesh_as_tubes(
+        interface  : OGF.Interface,
+        method     : str,
+        new_mesh   : OGF.NewMeshGrobName,
+        cyl_radius : float,
+        sph_radius : float,
+        cyl_prec   : int,
+        sph_prec   : int
+    ):
+        """
+        @brief Creates a surface with edges as cylinders
+        @param[in] new_mesh = tubes new mesh name
+        @param[in] cyl_radius = 0.002  cylinders radius in % of bbox diag or 0
+        @param[in] sph_radius = 0.003 spheres radius in % of bbox diag or 0
+        @advanced
+        @param[in] cyl_prec = 10 cylinder precision
+        @param[in] sph_prec = 2  sphere precision
+        @menu /Surface
+        """
+        grob = interface.grob
+        R = MeshGrobOps.get_object_bbox_diagonal(grob)
+        cyl_radius = cyl_radius * R
+        sph_radius = sph_radius * R
+        if grob.scene_graph().is_bound(new_mesh):
+            tubes = grob.scene_graph().resolve(new_mesh)
+            tubes.I.Editor.clear()
+        else:
+            tubes = OGF.MeshGrob(new_mesh)
+
+        tubes.disable_signals()
+
+        points = np.asarray(grob.I.Editor.get_points())
+        triangles = np.asarray(grob.I.Editor.get_triangles())
+
+        # Get all the edges of all triangles
+        edges = np.concatenate(
+            (triangles[:,[0,1]],
+             triangles[:,[1,2]],
+             triangles[:,[2,0]]),
+            axis=0
+        )
+
+        # Remove duplicates
+        keep_edges = (edges[:,0] > edges[:,1])
+        edges = edges[keep_edges]
+
+        # Lookup vertices
+        edges_points = np.take(points, edges, axis=0)
+
+        if cyl_radius != 0.0:
+            # Can we avoid this loop ?
+            for i in range(edges_points.shape[0]):
+                p1 = edges_points[i][0]
+                p2 = edges_points[i][1]
+                tubes.I.Shapes.create_cylinder_from_extremities(
+                    p1, p2, cyl_radius, cyl_prec
+                )
+
+        if sph_radius != 0.0:
+            # Can we avoid this loop ?
+            for i in range(points.shape[0]):
+                p = points[i]
+                tubes.I.Shapes.create_sphere(
+                    p, sph_radius, sph_prec
+                )
+
+        tubes.enable_signals()
+        tubes.update()
 
 
     def show_component_attribute(

@@ -507,7 +507,7 @@ class SceneGraphView(GrobView):
         @param[in] o: the object
         @return the GrobView associated with o
         """
-        return self.view_map[o.name]
+        return self.view_map.get(o.name, None)
 
     def get_views(self):
         """

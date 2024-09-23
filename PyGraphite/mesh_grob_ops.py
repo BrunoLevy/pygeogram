@@ -22,6 +22,15 @@ class MeshGrobOps:
         pmin,pmax = MeshGrobOps.get_object_bbox(o)
         return 0.5*(pmin+pmax)
 
+    def get_object_bbox_diagonal(o: OGF.MeshGrob) -> float:
+        """
+        @brief gets the bounding-box diagonal of a MeshGrob
+        @param[in] o: the MeshGrob
+        @return the length of the diagonal of the bounding box of o
+        """
+        pmin,pmax = MeshGrobOps.get_object_bbox(o)
+        return np.linalg.norm(pmax-pmin)
+
     def translate_object(o: OGF.MeshGrob, T: np.ndarray):
         """
         @brief Applies a translation to object's vertices

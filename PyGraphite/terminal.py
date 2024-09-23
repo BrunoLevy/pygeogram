@@ -51,12 +51,31 @@ class Terminal:
         self.focus = False
         self.app = app
         self.debug_mode = self.app.debug_mode
+        self.printing = False
         application = self.app.scene_graph.application
         gom.connect(application.out, self.out_CB)
         gom.connect(application.err, self.err_CB)
-        sys.stdout = GraphiteStream(gom.out)
-        sys.stderr = GraphiteStream(gom.err)
-        sys.displayhook = gom.out
+        self.sys_stdout = sys.stdout
+        self.sys_stderr = sys.stderr
+        self.sys_displayhook = sys.displayhook
+        self.term_stdout = GraphiteStream(gom.out)
+        self.term_stderr = GraphiteStream(gom.err)
+        self.term_displayhook = gom.out
+        self.set_term_output()
+
+    def set_term_output(self):
+        if self.debug_mode:
+            return
+        sys.stdout = self.term_stdout
+        sys.stderr = self.term_stderr
+        sys.displayhook = self.term_displayhook
+
+    def set_sys_output(self):
+        if self.debug_mode:
+            return
+        sys.stdout = self.sys_stdout
+        sys.stderr = self.sys_stderr
+        sys.displayhook = self.sys_displayhook
 
     def draw(self):
         if not self.visible:
@@ -102,13 +121,19 @@ class Terminal:
           slider enough time to reach the last line in the terminal
         @param[in] msg the message to be printed
         """
-        if(self.debug_mode): # see comment in constructor
-            print(msg)
+        if self.printing or self.app.drawing:
+            self.printing = True
+            self.set_sys_output()
             self.update_frames = 0
+            print(msg)
+            self.set_term_output()
+            self.printing = False
         else:
+            self.printing = True
             self.message = self.message + msg
             self.update_frames = 3 # needs three frames for SetScrollY()
                                    # to do the job
+            self.printing = False
 
     def handle_queued_command(self):
         if self.queued_execute_command:
@@ -173,8 +198,9 @@ class Terminal:
         @param[in] msg the message to be displayed
         """
         self.print(msg)
-        while self.app.running and self.update_frames > 0:
-            ps.frame_tick()
+        if not self.printing and not self.app.drawing:
+            while self.app.running and self.update_frames > 0:
+                self.app.redraw()
 
     def err_CB(self,msg:str):
         """
@@ -187,5 +213,6 @@ class Terminal:
         """
         self.visible=True # make terminal appear if it was hidden
         self.print(msg)
-        while self.app.running and self.update_frames > 0:
-            ps.frame_tick()
+        if not self.printing and not self.app.drawing:
+            while self.app.running and self.update_frames > 0:
+                self.app.redraw()

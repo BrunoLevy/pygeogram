@@ -19,6 +19,13 @@ class GraphiteApp:
 
     #===== Application logic, callbacks ========================================
 
+    def redraw(self):
+        if self.drawing:
+            return
+        self.drawing = True
+        ps.frame_tick()
+        self.drawing = False
+
     def progress_begin_CB(self,taskname:str):
         """
         @brief Progress bar begin callback
@@ -31,7 +38,7 @@ class GraphiteApp:
         self.progress_task = taskname
         self.progress_percent = 0
         if self.running:
-            ps.frame_tick()
+            self.redraw()
 
     def progress_CB(self,progress_percent:int):
         """
@@ -44,7 +51,7 @@ class GraphiteApp:
         """
         self.progress_percent = progress_percent
         if self.running:
-            ps.frame_tick()
+            self.redraw()
 
     def progress_end_CB(self):
         """
@@ -56,7 +63,7 @@ class GraphiteApp:
         """
         self.progress_task = None
         if self.running:
-            ps.frame_tick()
+            self.redraw()
 
     # ============= constructor ==========================================
 
@@ -105,6 +112,8 @@ class GraphiteApp:
         self.object_file_to_save = ''
         self.object_to_save = None
 
+        # Draw
+        self.drawing = False
 
     #====== Main application loop ==========================================
 
@@ -128,7 +137,7 @@ class GraphiteApp:
         self.scene_graph.application.start()
 
         while self.running:
-            ps.frame_tick()
+            self.redraw()
 
             # Unhighlight highlighted object based on elapsed time
             self.scene_graph_view.unhighlight_object()
