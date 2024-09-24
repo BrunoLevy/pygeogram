@@ -43,7 +43,7 @@ PyAutoGUI.register_enum(
 
 # Declare a new Commands class for MeshGrob
 # The name should be something like MeshGrobXXXCommands
-class MeshGrobPolyScopeCommands:
+class MeshGrobPyGraphiteCommands:
 
     # You can add your own functions here, take a look at
     # the following ones to have an idea of how to do that.
@@ -115,10 +115,11 @@ class MeshGrobPolyScopeCommands:
     ):
         """
         @brief Applies a random perturbation to the vertices of a mesh
-        @param[in] howmuch = 0.01 amount of perturbation
+        @param[in] howmuch = 0.01 amount of perturbation rel to bbox diag
         @menu /Mesh
         """
         grob = interface.grob
+        howmuch = howmuch * MeshGrobOps.get_object_bbox_diagonal(grob)
         pts = np.asarray(grob.I.Editor.get_points())
         pts += howmuch * np.random.rand(*pts.shape)
         grob.update()
@@ -130,10 +131,11 @@ class MeshGrobPolyScopeCommands:
     ):
         """
         @brief Inflates a surface by moving its vertices along the normal
-        @param[in] howmuch = 0.1 inflating amount
+        @param[in] howmuch = 0.01 inflating amount rel to bbox diag
         @menu /Surface
         """
         grob = interface.grob
+        howmuch = howmuch * MeshGrobOps.get_object_bbox_diagonal(grob)
         grob.I.Attributes.compute_vertices_normals('normal')
         pts = np.asarray(grob.I.Editor.get_points())
         N   = np.asarray(grob.I.Editor.find_attribute('vertices.normal'))
@@ -152,12 +154,11 @@ class MeshGrobPolyScopeCommands:
         """
         @brief Creates a surface with edges as cylinders
         @param[in] new_mesh = tubes new mesh name
-        @param[in] cyl_radius = 0.002  cylinders radius in % of bbox diag or 0
-        @param[in] sph_radius = 0.003 spheres radius in % of bbox diag or 0
+        @param[in] cyl_radius = 0.002  cylinders radius rel to bbox diag or 0
+        @param[in] sph_radius = 0.003 spheres radius rel to bbox diag or 0
         @advanced
         @param[in] cyl_prec = 10 cylinder precision
         @param[in] sph_prec = 2  sphere precision
-        @menu /Surface
         """
         grob = interface.grob
         R = MeshGrobOps.get_object_bbox_diagonal(grob)
@@ -229,7 +230,7 @@ class MeshGrobPolyScopeCommands:
 
 # register our new commands so that Graphite GUI sees them
 PyAutoGUI.register_commands(
-    graphite.scene_graph, OGF.MeshGrob, MeshGrobPolyScopeCommands
+    graphite.scene_graph, OGF.MeshGrob, MeshGrobPyGraphiteCommands
 )
 
 #=====================================================
