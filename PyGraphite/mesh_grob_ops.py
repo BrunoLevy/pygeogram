@@ -106,18 +106,31 @@ class MeshGrobOps:
         XYZ = np.column_stack((X.flatten(),Y.flatten(),Z.flatten()))
 
         # create triangles grid
+        
         # https://stackoverflow.com/questions/44934631/
         #   making-grid-triangular-mesh-quickly-with-numpy
-        # disclaimer: I do not understand what's going on here
-        # (but it is *much faster* than using loops).
+        #
+        # nu-1 * nv-1 squares
+        #                |    two triangles per square
+        #                |      |
+        #                |      | three vertices per triangle
+        #                |      |  /
+        #             /-----\   | |
         T = np.empty((nu-1,nv-1,2,3),dtype=np.uint32)
+        
+        # 2D vertices indices array
         r = np.arange(nu*nv).reshape(nu,nv)
-        T[:,:, 0,0] = r[:-1,:-1]
-        T[:,:, 1,0] = r[:-1,1:]
-        T[:,:, 0,1] = r[:-1,1:]
-        T[:,:, 1,1] = r[1:,1:]
-        T[:,:, :,2] = r[1:,:-1,None]
+        
+        # the six vertices of the two triangles
+        T[:,:, 0,0] = r[:-1,:-1]     # T0.i        = (u,v)
+        T[:,:, 1,0] = r[:-1,1:]      # T1.i        = (u,v+1)
+        T[:,:, 0,1] = r[:-1,1:]      # T0.j        = (u,v+1)
+        T[:,:, 1,1] = r[1:,1:]       # T1.j        = (u+1,v+1)
+        T[:,:, :,2] = r[1:,:-1,None] # T0.k = T1.k = (u+1,j)
+        
+        # reshape triangles array
         T.shape =(-1,3)
+        
         MeshGrobOps.set_triangle_mesh(o, XYZ, T)
 
         # if the parameterization winds around (sphere, torus...),
