@@ -76,8 +76,50 @@ class MeshGrobOps:
         o.clear()
         E = o.I.Editor
         E.create_vertices(vrtx.shape[0])
-        E.create_triangles(T.shape[0])
         np.copyto(np.asarray(E.get_points()), vrtx)
-        np.copyto(np.asarray(E.get_triangles()), T)
-        E.connect_facets()
+        if T.shape[0] != 0:
+            E.create_triangles(T.shape[0])
+            np.copyto(np.asarray(E.get_triangles()), T)
+            E.connect_facets()
         o.update()
+
+
+    def set_parametric_surface(
+            o: OGF.MeshGrob,
+            F: callable,
+            nu: int = 10, nv: int = 10,
+            umin: float = 0.0, umax: float = 1.0,
+            vmin: float = 0.0, vmax: float = 1.0
+    ):
+        """
+        @brief sets a mesh from a parametric function
+        @param[in] F: equation, as a function taking
+          two numpy arrays U and V and returning three
+          numpy arrays X,Y and Z
+        @param[in] nu , nv: number of subdivisions
+        @param[in] umin , umax , vmin , vmax: domain bounds
+        """
+        U = np.linspace(umin, umax, nu)
+        V = np.linspace(vmin, vmax, nv)
+        V,U = np.meshgrid(V,U)
+        X,Y,Z = F(U,V)
+        XYZ = np.column_stack((X.flatten(),Y.flatten(),Z.flatten()))
+
+        # create triangles grid
+        # https://stackoverflow.com/questions/44934631/
+        #   making-grid-triangular-mesh-quickly-with-numpy
+        # disclaimer: I do not understand what's going on here
+        # (but it is *much faster* than using loops).
+        T = np.empty((nu-1,nv-1,2,3),dtype=np.uint32)
+        r = np.arange(nu*nv).reshape(nu,nv)
+        T[:,:, 0,0] = r[:-1,:-1]
+        T[:,:, 1,0] = r[:-1,1:]
+        T[:,:, 0,1] = r[:-1,1:]
+        T[:,:, 1,1] = r[1:,1:]
+        T[:,:, :,2] = r[1:,:-1,None]
+        T.shape =(-1,3)
+        MeshGrobOps.set_triangle_mesh(o, XYZ, T)
+
+        # if the parameterization winds around (sphere, torus...),
+        # we need to glue the vertices
+        o.I.Surface.repair_surface()

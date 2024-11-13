@@ -228,6 +228,71 @@ class MeshGrobPyGraphiteCommands:
         view.show_component_attribute(attribute,component)
         grob.update()
 
+    def create_icosahedron(
+        interface  : OGF.Interface,
+        method     : str
+    ):
+        """
+        @brief replaces the current mesh with a unit icosahedron
+        """
+        pts = np.array(
+            [[ 0.        , 0.        , 1.175571 ],
+             [ 1.051462  , 0.        , 0.5257311],
+             [ 0.3249197 , 1.        , 0.5257311],
+             [-0.8506508 , 0.618034  , 0.5257311],
+             [-0.8506508 ,-0.618034  , 0.5257311],
+             [ 0.3249197 ,-1.        , 0.5257311],
+             [ 0.8506508 , 0.618034  ,-0.5257311],
+             [ 0.8506508 ,-0.618034  ,-0.5257311],
+             [-0.3249197 , 1.        ,-0.5257311],
+             [-1.051462  , 0.        ,-0.5257311],
+             [-0.3249197 ,-1.        ,-0.5257311],
+             [ 0.        , 0.        ,-1.175571 ]])
+
+        tri = np.array(
+            [[ 0 , 1 , 2],
+             [ 0 , 2 , 3],
+             [ 0 , 3 , 4],
+             [ 0 , 4 , 5],
+             [ 0 , 5 , 1],
+             [ 1 , 5 , 7],
+             [ 1 , 7 , 6],
+             [ 1 , 6 , 2],
+             [ 2 , 6 , 8],
+             [ 2 , 8 , 3],
+             [ 3 , 8 , 9],
+             [ 3 , 9 , 4],
+             [ 4 , 9 ,10],
+             [ 4 ,10 , 5],
+             [ 5 ,10 , 7],
+             [ 6 , 7 ,11],
+             [ 6 ,11 , 8],
+             [ 7 ,10 ,11],
+             [ 8 ,11 , 9],
+             [ 9 ,11 ,10]], dtype=np.uint32)
+
+        grob = interface.grob
+        MeshGrobOps.set_triangle_mesh(grob, pts, tri)
+
+    def create_UV_sphere(
+            interface  : OGF.Interface,
+            method     : str,
+            ntheta     : int,
+            nphi       : int
+    ):
+        """
+        @brief replaces the current mesh with a sphere
+        @param[in] ntheta = 20 number of subdivisions around equator
+        @param[in] nphi = 10 number of subdivisions around meridian
+        """
+        MeshGrobOps.set_parametric_surface(
+            interface.grob,
+            lambda U,V: (np.cos(U)*np.cos(V),np.sin(U)*np.cos(V),np.sin(V)),
+            ntheta, nphi,
+            0.0, 2.0*np.pi,
+            -0.5*np.pi, 0.5*np.pi
+        )
+
 # register our new commands so that Graphite GUI sees them
 PyAutoGUI.register_commands(
     graphite.scene_graph, OGF.MeshGrob, MeshGrobPyGraphiteCommands
