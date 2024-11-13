@@ -65,3 +65,19 @@ class MeshGrobOps:
         # Could be written also in 1 line only (but less legible I think):
         #    vertices = vertices[:,:-1] / vertices[:,-1][:,np.newaxis]
         np.copyto(object_vertices,vertices)       # inject into graphite object
+
+    def set_triangle_mesh(o: OGF.MeshGrob, vrtx: np.ndarray, T: np.ndarray):
+        """
+        @brief sets a mesh from a vertices array and a triangle array
+        @param[out] o: the target mesh
+        @param[in] vrtx: an nv*3 array of vertices coordinates
+        @param[in] T: an nt*3 array of vertices indices (starting from 0)
+        """
+        o.clear()
+        E = o.I.Editor
+        E.create_vertices(vrtx.shape[0])
+        E.create_triangles(T.shape[0])
+        np.copyto(np.asarray(E.get_points()), vrtx)
+        np.copyto(np.asarray(E.get_triangles()), T)
+        E.connect_facets()
+        o.update()
