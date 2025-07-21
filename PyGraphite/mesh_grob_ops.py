@@ -1,7 +1,5 @@
 import numpy as np
-import gompy
-gom = gompy.interpreter()
-OGF = gom.meta_types.OGF
+import gompy.types.OGF as OGF
 
 class MeshGrobOps:
     def get_object_bbox(o: OGF.MeshGrob) -> tuple:

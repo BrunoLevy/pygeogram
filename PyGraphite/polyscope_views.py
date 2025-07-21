@@ -1,11 +1,7 @@
 import polyscope as ps
 import numpy as np
 import time
-
-import gompy
-gom = gompy.interpreter()
-OGF = gom.meta_types.OGF
-
+import gompy.gom as gom, gompy.types.OGF as OGF
 from mesh_grob_ops import MeshGrobOps
 
 #==== PolyScope display for Graphite objects ==============================

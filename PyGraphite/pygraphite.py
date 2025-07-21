@@ -14,10 +14,7 @@
 
 import polyscope as ps, numpy as np # of course we need these two ones
 import sys                          # to get command line args
-import gompy                        # always import gompy *after* polyscope
-
-gom = gompy.interpreter()
-OGF = gom.meta_types.OGF
+import gompy.types.OGF as OGF       # always import gompy *after* polyscope
 
 from auto_gui      import PyAutoGUI   # to declare new Graphite cmds in Python
 from graphite_app  import GraphiteApp # of course we need this one

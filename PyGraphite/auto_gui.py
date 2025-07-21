@@ -1,14 +1,12 @@
 import typing
 import polyscope.imgui as imgui
-import gompy
-gom = gompy.interpreter()
-OGF = gom.meta_types.OGF
+import gompy, gompy.gom as gom, gompy.types.OGF as OGF
 
 #===============================================================================
 
 class MenuMap:
     """ @brief Handles the menu hierarchy associated with a grob """
-    def __init__(self, grob_meta_class : gom.meta_types.OGF.MetaClass):
+    def __init__(self, grob_meta_class : OGF.MetaClass):
         """
         @brief MenuMap constructor
         @param[in] grob_meta_class the GOM meta-class of a Graphite object
@@ -188,13 +186,13 @@ class AutoGUI:
             if mmethod.ith_arg_has_default_value(i):
                 val = mmethod.ith_arg_default_value_as_string(i)
             mtype = mmethod.ith_arg_type(i)
-            if mtype == gom.meta_types.bool:
+            if mtype == gompy.types.bool:
                 if val == '':
                     val = False
                 else:
                     val = (val == 'true' or val == 'True')
             elif (
-                mtype == gom.meta_types.int or
+                mtype == gompy.types.int or
                 mtype == OGF.index_t or
                 mtype == gom.resolve_meta_type('unsigned int')
             ):
@@ -203,8 +201,8 @@ class AutoGUI:
                 else:
                     val = int(val)
             elif (
-                mtype == gom.meta_types.float or
-                mtype == gom.meta_types.double
+                mtype == gompy.types.float or
+                mtype == gompy.types.double
             ):
                 if val == '':
                     val = 0.0
@@ -359,7 +357,7 @@ class AutoGUI:
 
     def bool_handler(
             o: object, property_name: str,
-            mtype: gom.meta_types.bool, tooltip: str
+            mtype: gompy.types.bool, tooltip: str
     ):
         """
         @brief Handles the GUI for a bool property in an object, with a checkbox
@@ -697,10 +695,10 @@ class PyAutoGUI:
         # small table to translate standard Python types into
         # GOM metatypes
         python2gom = {
-            str:   gom.meta_types.std.string,
-            int:   gom.meta_types.int,
-            float: gom.meta_types.float,
-            bool:  gom.meta_types.bool
+            str:   gompy.types.std.string,
+            int:   gompy.types.int,
+            float: gompy.types.float,
+            bool:  gompy.types.bool
         }
         mslot = mclass.add_slot(pyfunc.__name__,pyfunc)
         for argname, argtype in typing.get_type_hints(pyfunc).items():

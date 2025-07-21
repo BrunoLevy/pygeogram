@@ -1,9 +1,7 @@
 from rlcompleter import Completer
 import polyscope as ps, polyscope.imgui as imgui
 import sys
-import gompy
-
-gom = gompy.interpreter()
+import gompy.gom as gom
 
 #=========================================================================
 

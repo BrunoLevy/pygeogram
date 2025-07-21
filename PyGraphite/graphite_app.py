@@ -1,9 +1,6 @@
 import polyscope as ps, polyscope.imgui as imgui, numpy as np
 import time
-import gompy
-
-gom = gompy.interpreter()
-OGF = gom.meta_types.OGF
+import gompy.gom as gom, gompy.types.OGF as OGF
 
 from auto_gui import MenuMap, ArgList, AutoGUI, PyAutoGUI
 from polyscope_views import SceneGraphView
