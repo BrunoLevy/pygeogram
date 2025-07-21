@@ -4,8 +4,7 @@
 
 import polyscope as ps
 import numpy as np
-import gompy
-OGF = gom.meta_types.OGF
+import gompy.types.OGF as OGF
 
 # ---------------------- Same as before --------------------------------
 

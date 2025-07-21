@@ -3,10 +3,9 @@
 
 import polyscope as ps
 import numpy as np
-import gompy
+import gompy.types.OGF as OGF
 import math
 
-OGF = gom.meta_types.OGF
 scene_graph = OGF.SceneGraph()
 
 # ---------------------- Same as before --------------------------------

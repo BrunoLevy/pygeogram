@@ -4,11 +4,9 @@
 
 import polyscope as ps
 import numpy as np
-import gompy
+import gompy.types.OGF as OGF
 import math
 import time
-
-OGF = gom.meta_types.OGF # shortcut
 
 # =============================================================================
 

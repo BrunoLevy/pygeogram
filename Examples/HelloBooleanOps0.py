@@ -4,8 +4,7 @@
 
 import polyscope as ps
 import numpy as np
-import gompy
-OGF = gom.meta_types.OGF # All graphite classes are there, create a shortcut
+import gompy.types.OGF as OGF
 
 def register_graphite_object(O: OGF.MeshGrob):
    """

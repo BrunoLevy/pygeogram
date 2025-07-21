@@ -4,10 +4,9 @@
 
 import polyscope as ps
 import numpy as np
-import gompy
+import gompy.types.OGF as OGF
 import math
 
-OGF = gom.meta_types.OGF
 scene_graph = OGF.SceneGraph()
 running = True
 op = 1  # the operation, 0: union, 1: intersection, 2: difference
