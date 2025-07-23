@@ -13,7 +13,7 @@ import random
 #   [ ] pulldown menu for enums
 # [ ] Scene submenu with
 #   [ ] load scene / save scene
-#   [ ] load object
+#   [x] load object
 #   [ ] clear scene
 #   [ ] create object / shapes
 #   [ ] show all / hide all
@@ -21,6 +21,7 @@ import random
 # [ ] Progressbar
 # [ ] Logger
 # [ ] Graphite commands in context menu
+# [ ] clean_graphite() function
 
 ## https://docs.blender.org/api/current/bpy.types.Operator.html#dialog-box
 ## https://blender.stackexchange.com/questions/102446/how-to-generate-temporary-operators-with-dynamic-properties
@@ -49,6 +50,7 @@ def send_object_to_blender(obj):
       bobj  = bpy.data.objects['GI.' + obj.name]
    except:
       bobj  = bpy.data.objects.new('GI.' + obj.name, bmesh)
+   bobj.location = [0, 0, 0]
    bmesh.clear_geometry()
    bmesh.from_pydata(verts, [], faces)
    bmesh.update(calc_edges=True)
@@ -72,8 +74,8 @@ def send_objects_to_blender(prefix = ''):
 def clean_blender_collection(collection):
     to_remove = [
         obj for obj in collection if
-            obj.name == 'Cube' or (obj.name.startswith('GI.') and not \
-               sg.is_bound(obj.name.removeprefix('GI.').removesuffix('.mesh')))
+            obj.name == 'Cube' or ( obj.name.startswith('GI.') )
+            # and not sg.is_bound(obj.name.removeprefix('GI.').removesuffix('.mesh')))
     ]
     for obj in to_remove:
         collection.remove(obj)
@@ -93,12 +95,12 @@ sg = OGF.SceneGraph.instance
 if sg == None:
     clean_blender()
     sg = OGF.SceneGraph()
-    S = OGF.MeshGrob(sg,'S')
-    S.I.Shapes.create_sphere([0, 0, 0], 1.2)
-    C = OGF.MeshGrob(sg,'C')
-    C.I.Shapes.create_box([-1, -1, -1],[1, 1, 1])
-    C.I.Surface.triangulate()
-    send_objects_to_blender()
+#   S = OGF.MeshGrob(sg,'S')
+#   S.I.Shapes.create_sphere([0, 0, 0], 1.2)
+#   C = OGF.MeshGrob(sg,'C')
+#   C.I.Shapes.create_box([-1, -1, -1],[1, 1, 1])
+#   C.I.Surface.triangulate()
+#   send_objects_to_blender()
 
 # ------------------------------------------------------
 
@@ -207,8 +209,8 @@ class AutoGUI:
                     self.mmethod
                 )
                 request(**args) #**: expand dict as keywords func call
-                send_objects_to_blender()
                 clean_blender()
+                send_objects_to_blender()
                 return {'FINISHED'}
 
             def invoke(self, context, event):
@@ -239,7 +241,38 @@ class AutoGUI:
         bpy.utils.register_class(GIDynamicOperator)
         return GIDynamicOperator
 
-# ------------------------------------------------------
+# ---------------------------------------------------------------------------
+
+class GISceneLoadObject(bpy.types.Operator):
+    bl_label = 'Load object'
+    bl_idname = 'wm.gi_operator_load_object'
+
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+
+    def execute(self,context):
+        print('LoadObject:', self.filepath)
+        obj = sg.load_object(self.filepath)
+        if obj != None:
+            send_object_to_blender(obj)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+bpy.utils.register_class(GISceneLoadObject)
+
+class GISceneMenu(bpy.types.Menu):
+    bl_label = 'Scene'
+    bl_idname = AutoGUI.menu_id('Alloy/Scene')
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator(GISceneLoadObject.bl_idname)
+
+bpy.utils.register_class(GISceneMenu)
+
+# ---------------------------------------------------------------------------
 
 class MenuMap:
     """ @brief Handles the menu hierarchy associated with a grob """
@@ -331,6 +364,8 @@ class MenuMap:
 
             def draw(self, context):
                 layout = self.layout
+                if path == 'Alloy':
+                    layout.menu(GISceneMenu.bl_idname)
                 for k,v in self.menudict.items():
                     if isinstance(v,dict):
                         layout.menu(AutoGUI.menu_id(path + '/' + k))
