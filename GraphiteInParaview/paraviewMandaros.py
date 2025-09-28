@@ -6,6 +6,7 @@ import gompy.types.OGF as OGF
 import numpy as np
 import vtk
 from vtk.util import numpy_support
+import random
 
 def show_Alloy_mesh(M,name,color):
     """Displays a Graphite MeshGrob in Paraview as a vtkPolyData"""
@@ -31,6 +32,12 @@ def show_Alloy_mesh(M,name,color):
     display.Representation = 'Surface'
     display.DiffuseColor = color
 
-S = OGF.MeshGrob()
-S.I.Shapes.create_sphere()
-show_Alloy_mesh(S,'my_sphere',[0.7, 0.7, 1.0])
+sg = OGF.SceneGraph()
+UVW = sg.load_object('mandaros_UVW.geogram')
+dir(UVW.I)
+UVW.I.Geomodel.build_structural_model_from_tet_mesh()
+
+for obj in sg.objects:
+    if obj.name.startswith('region_'):
+      color = [ random.uniform(0,1), random.uniform(0,1), random.uniform(0,1)]
+      show_Alloy_mesh(obj, obj.name, color)
