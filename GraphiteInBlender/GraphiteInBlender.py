@@ -3,6 +3,12 @@ import gompy, gompy.types.OGF as OGF, gompy.gom as gom
 import numpy as np
 import random
 
+# Usage: blender --python GraphiteInBlender.py
+#  Load mandaros_uvw.geogram
+#  Select mandaros_uvw
+#  Mesh->Normalize
+#  GI->Structural->build structural model from tetmesh
+
 ## TODO
 # [x] add menu to Blender
 # [x] draw command GUI in Blender
