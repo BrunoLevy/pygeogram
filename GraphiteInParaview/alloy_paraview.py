@@ -8,8 +8,11 @@ import vtk
 from vtk.util import numpy_support
 import random
 
-def show_Alloy_mesh(M,name,color):
+def show_mesh(M,name,color):
     """Displays a Graphite MeshGrob in Paraview as a vtkPolyData"""
+    old = paraview.simple.FindSource(name)
+    if old != None:
+        paraview.simple.Delete(old)
     vpd = vtkPolyData()
     points_array = np.asarray(M.I.Editor.get_points()).astype(np.float32)
     points = vtkPoints()
@@ -32,17 +35,11 @@ def show_Alloy_mesh(M,name,color):
     display.Representation = 'Surface'
     display.DiffuseColor = color
 
-def show_Alloy_meshes(scene_graph, prefix=''):
+def show_meshes(scene_graph, prefix=''):
     """Displays all objects with a name that starts with a given prefix"""
-    for obj in sg.objects:
+    for obj in scene_graph.objects:
         if obj.name.startswith(prefix):
             color = [ random.uniform(0,1),
                       random.uniform(0,1),
                       random.uniform(0,1) ]
-            show_Alloy_mesh(obj, obj.name, color)
-
-
-sg = OGF.SceneGraph()
-UVW = sg.load_object('mandaros_UVW.geogram')
-UVW.I.Geomodel.build_structural_model_from_tet_mesh()
-show_Alloy_meshes(sg,'region_')
+            show_mesh(obj, obj.name, color)
