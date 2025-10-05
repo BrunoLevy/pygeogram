@@ -5,13 +5,13 @@ import vtk
 from vtk.util import numpy_support
 import random
 
-def mesh_to_vtk_points(M):
+def mesh_to_vtk_points(M: OGF.MeshGrob):
     np_points = np.asarray(M.I.Editor.get_points()).astype(np.float32)
     points = vtk.vtkPoints()
     points.SetData(numpy_support.numpy_to_vtk(np_points,deep=True))
     return points
 
-def mesh_to_vtk_poly_data(M):
+def mesh_to_vtk_poly_data(M: OGF.MeshGrob):
     vpd = vtk.vtkPolyData()
     vpd.SetPoints(mesh_to_vtk_points(M))
     if M.I.Editor.nb_facets != 0:
@@ -30,7 +30,7 @@ def mesh_to_vtk_poly_data(M):
         vpd.SetPolys(triangles)
     return vpd
 
-def mesh_to_vtk_unstructured_grid(M):
+def mesh_to_vtk_unstructured_grid(M: OGF.MeshGrob):
     vug = vtk.vtkUnstructuredGrid()
     vug.SetPoints(mesh_to_vtk_points(M))
     if M.I.Editor.nb_cells != 0:
@@ -64,20 +64,20 @@ def mesh_to_vtk_unstructured_grid(M):
                 np_c_vertices = np_cell_vertices[c_begin:c_end]
                 vtk_c_vertices = vtk.vtkIdList()
                 vtk_c_vertices.Allocate(c_nv)
-                if c_nv == 8:
+                if c_nv == 8: # vertices numbering different for hex
                     np_c_vertices = np_c_vertices[swap_hex]
                 for v in np_c_vertices: # aaarrrrgh ! two nested Python loops !!
                     vtk_c_vertices.InsertNextId(v)
                 vug.InsertNextCell(nbv_to_vtk[c_nv], vtk_c_vertices)
     return vug
 
-def mesh_to_vtk(M):
+def mesh_to_vtk(M: OGF.MeshGrob):
     if M.I.Editor.nb_cells != 0:
         return mesh_to_vtk_unstructured_grid(M)
     else:
         return mesh_to_vtk_poly_data(M)
 
-def show_mesh(M,name,color):
+def show_mesh(M: OGF.MeshGrob, name: str, color: list):
     """Displays a Graphite MeshGrob in Paraview as a vtkPolyData"""
     old = paraview.simple.FindSource(name)
     if old != None:
@@ -94,7 +94,7 @@ def show_mesh(M,name,color):
         display.Representation = 'Point Gaussian'
     display.DiffuseColor = color
 
-def show_meshes(scene_graph, prefix=''):
+def show_meshes(scene_graph: OGF.SceneGraph, prefix: str = ''):
     """Displays all objects with a name that starts with a given prefix"""
     for obj in scene_graph.objects:
         if obj.name.startswith(prefix):
