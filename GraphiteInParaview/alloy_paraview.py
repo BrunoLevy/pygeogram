@@ -49,31 +49,26 @@ def mesh_to_vtk_unstructured_grid(M):
             )
             vug.SetCells(vtk.VTK_TETRA,tets)
         else:
-            geogram_celltype2vtk = [
-                vtk.VTK_TETRA, vtk.VTK_HEXAHEDRON, vtk.VTK_WEDGE,
-                vtk.VTK_PYRAMID, vtk.VTK_TETRA
-            ]
-            geogram_celltype2nb = [ 4, 8, 6, 5, 4 ]
             # hex numbering differs in geogram and paraview
             swap_hex = np.asarray([0,1,3,2,4,5,7,6])
-            np_cell_types = np.asarray(M.I.Editor.get_cell_types())
+            # maps number of vertices to vtk primitive
+            nbv_to_vtk = [ 0, 0, 0, 0,
+                 vtk.VTK_TETRA,vtk.VTK_PYRAMID,vtk.VTK_WEDGE,0,vtk.VTK_HEXAHEDRON
+            ]
             np_cell_vertices = np.asarray(M.I.Editor.get_cell_vertices())
             np_cell_ptrs = np.asarray(M.I.Editor.get_cell_pointers())
-            np_cell_sizes = np_cell_ptrs[1:] - np_cell_ptrs[0:-1]
-            for c in range(M.I.Editor.nb_cells):
+            for c in range(M.I.Editor.nb_cells): # argh! a Python loop (slooow)!
                 c_begin = np_cell_ptrs[c]
-                c_type = np_cell_types[c]
-                c_nv = geogram_celltype2nb[c_type]
-                np_c_vertices = np_cell_vertices[c_begin:c_begin+c_nv]
+                c_end = np_cell_ptrs[c+1]
+                c_nv = c_end - c_begin
+                np_c_vertices = np_cell_vertices[c_begin:c_end]
                 vtk_c_vertices = vtk.vtkIdList()
                 vtk_c_vertices.Allocate(c_nv)
-                if c_type == 1:
+                if c_nv == 8:
                     np_c_vertices = np_c_vertices[swap_hex]
-                for v in np_c_vertices:
+                for v in np_c_vertices: # aaarrrrgh ! two nested Python loops !!
                     vtk_c_vertices.InsertNextId(v)
-                vug.InsertNextCell(
-                    geogram_celltype2vtk[c_type], vtk_c_vertices
-                )
+                vug.InsertNextCell(nbv_to_vtk[c_nv], vtk_c_vertices)
     return vug
 
 def mesh_to_vtk(M):
