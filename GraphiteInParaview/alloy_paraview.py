@@ -5,13 +5,47 @@ import vtk
 from vtk.util import numpy_support
 import random
 
+# TODO:
+#  - general polygonal surfaces
+#  - lines
+#  - check when we can use deep=False
+#  - maybe a mechanism to update vtk objects and keep them in sync
+#    with geogram using SceneGraph's signals
+
+def mesh_attributes_to_vtk(M: OGF.MeshGrob, loc: str, V: vtk.vtkDataSet):
+    """
+       @brief Copies geogram attributes to a vtk object
+       @param[in] M a MeshGrob
+       @param[in] loc one of 'vertices','edges','facets','cells'
+       @param[in] V the target vtkDataSet, typically obtained through
+                  getPointData() or getCellData()
+                  from a vtkPolyData or vtkUnstructuredGrid
+    """
+    attrs = M.list_attributes(localisations=loc).split(';')
+    for attr_name in attrs:
+        if attr_name != '':
+            np_attr = np.asarray(M.I.Editor.find_attribute(attr_name))
+            vtk_attr = numpy_support.numpy_to_vtk(np_attr,deep=True)
+            vtk_attr.SetName(attr_name.removeprefix(loc + '.'))
+            V.AddArray(vtk_attr)
+
 def mesh_to_vtk_points(M: OGF.MeshGrob):
+    """
+        @brief Converts a MeshGrob into a vtkPoints
+        @param[in] M a MeshGrob
+        @return a vtkPoints object, with the same geometry and attributes as M
+    """
     np_points = np.asarray(M.I.Editor.get_points()).astype(np.float32)
     points = vtk.vtkPoints()
     points.SetData(numpy_support.numpy_to_vtk(np_points,deep=True))
     return points
 
 def mesh_to_vtk_poly_data(M: OGF.MeshGrob):
+    """
+        @brief Converts a MeshGrob into a vtkPolyData (polygonal surface)
+        @param[in] M a MeshGrob
+        @return a vtkPolyData object, with the same geometry and attributes as M
+    """
     vpd = vtk.vtkPolyData()
     vpd.SetPoints(mesh_to_vtk_points(M))
     if M.I.Editor.nb_facets != 0:
@@ -28,9 +62,16 @@ def mesh_to_vtk_poly_data(M: OGF.MeshGrob):
            numpy_support.numpy_to_vtkIdTypeArray(np_triangles, deep=True)
         )
         vpd.SetPolys(triangles)
+    mesh_attributes_to_vtk(M, 'vertices', vpd.GetPointData())
+    mesh_attributes_to_vtk(M, 'facets', vpd.GetCellData())
     return vpd
 
 def mesh_to_vtk_unstructured_grid(M: OGF.MeshGrob):
+    """
+        @brief Converts a MeshGrob into a vtkUnstructuredGrid
+        @param[in] M a MeshGrob
+        @return a vtkUnstructuredGrid, with the same geometry and attributes as M
+    """
     vug = vtk.vtkUnstructuredGrid()
     vug.SetPoints(mesh_to_vtk_points(M))
     if M.I.Editor.nb_cells != 0:
@@ -69,16 +110,31 @@ def mesh_to_vtk_unstructured_grid(M: OGF.MeshGrob):
                 for v in np_c_vertices: # aaarrrrgh ! two nested Python loops !!
                     vtk_c_vertices.InsertNextId(v)
                 vug.InsertNextCell(nbv_to_vtk[c_nv], vtk_c_vertices)
+    mesh_attributes_to_vtk(M, 'vertices', vug.GetPointData())
+    mesh_attributes_to_vtk(M, 'cells', vug.GetCellData())
     return vug
 
 def mesh_to_vtk(M: OGF.MeshGrob):
+    """
+       @brief Converts a MeshGrob into a vtk object
+       @param[in] M the MeshGrob to be converted
+       @return a vtkPoints, vtkPolyData or vtkUnstructuredGrid depending on
+         the information present in M. Attributes are also copied.
+    """
     if M.I.Editor.nb_cells != 0:
         return mesh_to_vtk_unstructured_grid(M)
     else:
         return mesh_to_vtk_poly_data(M)
 
-def show_mesh(M: OGF.MeshGrob, name: str, color: list):
-    """Displays a Graphite MeshGrob in Paraview as a vtkPolyData"""
+def show_mesh(M: OGF.MeshGrob, name: str, color: list = [0.7, 0.7, 0.7]):
+    """
+       @brief Displays a Graphite MeshGrob in Paraview as a vtkPolyData
+       @details If an object of the same name is already present in Paraview,
+         it will be overwritten
+       @param[in] M the MeshGrob to be displayed
+       @param[in] name the name that will be associated with M in Paraview
+       @param[in] color a list with the r,g,b component of the color
+    """
     old = paraview.simple.FindSource(name)
     if old != None:
         paraview.simple.Delete(old)
@@ -95,7 +151,13 @@ def show_mesh(M: OGF.MeshGrob, name: str, color: list):
     display.DiffuseColor = color
 
 def show_meshes(scene_graph: OGF.SceneGraph, prefix: str = ''):
-    """Displays all objects with a name that starts with a given prefix"""
+    """
+       @brief Displays all objects with a name that starts with a given prefix
+       @param[in] scene_graph the scene_graph that contains the meshes to
+                  be displayed
+       @param[in] prefix if specified, display only the objects which name start
+                  with prefix
+    """
     for obj in scene_graph.objects:
         if obj.name.startswith(prefix):
             color = [ random.uniform(0,1),
