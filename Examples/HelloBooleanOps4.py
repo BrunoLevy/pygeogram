@@ -101,7 +101,7 @@ class MyApplication(Application):
         result.I.Editor.clear()
         if shape == SPHERE:
             result.I.Shapes.create_sphere(
-                center=center, radius=1.0, precision=3
+                center=center, radius=1.0, precision=4
             )
         elif shape == CUBE:
             result.I.Shapes.create_box(

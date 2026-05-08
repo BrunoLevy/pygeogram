@@ -426,18 +426,6 @@ class GraphiteApp:
           by draw_object_GUI()
         """
         imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [0,0])
-        if imgui.ArrowButton('^'+object.name,imgui.ImGuiDir_Up):
-            self.scene_graph.current_object = object.name
-            self.scene_graph.move_current_up()
-        if imgui.IsItemHovered():
-            imgui.SetTooltip('Move object up')
-        imgui.SameLine()
-        if imgui.ArrowButton('v'+object.name,imgui.ImGuiDir_Down):
-            self.scene_graph.current_object = object.name
-            self.scene_graph.move_current_down()
-        if imgui.IsItemHovered():
-            imgui.SetTooltip('Move object down')
-        imgui.SameLine()
         imgui.PushStyleVar(imgui.ImGuiStyleVar_FramePadding, [2,0])
         if imgui.Button('X'+'##'+object.name):
             if (self.request != None and

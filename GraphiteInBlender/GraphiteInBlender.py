@@ -101,12 +101,12 @@ sg = OGF.SceneGraph.instance
 if sg == None:
     clean_blender()
     sg = OGF.SceneGraph()
-#   S = OGF.MeshGrob(sg,'S')
-#   S.I.Shapes.create_sphere([0, 0, 0], 1.2)
-#   C = OGF.MeshGrob(sg,'C')
-#   C.I.Shapes.create_box([-1, -1, -1],[1, 1, 1])
-#   C.I.Surface.triangulate()
-#   send_objects_to_blender()
+#    S = OGF.MeshGrob(sg,'S')
+#    S.I.Shapes.create_sphere([0, 0, 0], 1.2)
+#    C = OGF.MeshGrob(sg,'C')
+#    C.I.Shapes.create_box([-1, -1, -1],[1, 1, 1])
+#    C.I.Surface.triangulate()
+#    send_objects_to_blender()
 
 # ------------------------------------------------------
 
