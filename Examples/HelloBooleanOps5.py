@@ -86,24 +86,36 @@ class MeshGrobOps:
         vertices = np.asarray(o.I.Editor.get_points())
         vertices += T
 
-    def rotate_object(o: OGF.MeshGrob, alpha):
+    def rotate_object(o: OGF.MeshGrob, alpha: float, axis: str):
         c = math.cos(alpha)
         s = math.sin(alpha)
-        M = np.array(
-            [[c,   0.0,   s],
-             [0.0, 1.0, 0.0],
-             [-s,   0.0,  c],
-            ]
-        );
+        if axis == 'X':
+            M = np.array(
+                [[ 1.0,  0.0,  0.0],
+                 [ 0.0, -s,    c, ],
+                 [ 0.0,  c,    s, ]]
+            );
+        elif axis == 'Y':
+            M = np.array(
+                [[ c,   0.0,  s  ],
+                 [ 0.0, 1.0,  0.0],
+                 [-s,   0.0,  c  ]]
+            );
+        elif axis == 'Z':
+            M = np.array(
+                [[-s,   c,   0.0],
+                 [ c,   s,   0.0],
+                 [ 0.0, 0.0, 1.0]]
+            );
         vertices = np.asarray(o.I.Editor.get_points())
         np.matmul(vertices,M,vertices)
 
 # =============================================================================
 
 # constants for boolean ops and shapes
-UNION=0; INTERSECTION=1; DIFFERENCE=2
+UNION=0; DIFFERENCE=1; INTERSECTION=2
 
-SPHERE=0; CUBE=1; ICOSAHEDRON=2; CYLINDER=3
+SPHERE=0; CUBE=1; ICOSAHEDRON=2; CYLINDER=3; BUNNY=4
 
 
 
@@ -112,7 +124,7 @@ class MyApplication(Application):
     def __init__(self):
         super().__init__()
         self.op = 1
-        self.shape1 = SPHERE
+        self.shape1 = CYLINDER
         self.shape2 = CUBE
         self.animate = False
         self.frame = 0
@@ -123,7 +135,7 @@ class MyApplication(Application):
         mesh.I.Editor.clear()
         if shape == SPHERE:
             mesh.I.Shapes.create_sphere(
-                center, radius=1.0, precision=2
+                center, radius=1.0, precision=3
             )
         elif shape == CUBE:
             mesh.I.Shapes.create_box(
@@ -138,6 +150,8 @@ class MyApplication(Application):
                 [0,-1.5,0],[0,1.5,0],1.0,30
             )
             mesh.I.Surface.triangulate() # needed by boolean ops
+        elif shape == BUNNY:
+            mesh.load('bunny_0_2k.stl')
 
     def draw_GUI(self):
         if ps.imgui.Button('quit'):
@@ -152,19 +166,16 @@ class MyApplication(Application):
 
         if not self.animate:
             ps.imgui.SameLine()
-            if ps.imgui.Button('<'):
-                self.step_backward()
-            ps.imgui.SameLine()
             if ps.imgui.Button('>'):
                 self.step_forward()
 
         # The combo-boxes to chose two shapes
-        shapes = ['sphere','cube','icosahedron', 'cylinder']
+        shapes = ['sphere','cube','icosahedron', 'cylinder', 'bunny']
         _,self.shape1 = ps.imgui.Combo('shape 1',self.shape1,shapes)
         _,self.shape2 = ps.imgui.Combo('shape 2',self.shape2,shapes)
 
         # The combo-box to chose the boolean operation
-        ops = ['union','intersection','difference']
+        ops = ['union','difference','intersection']
         _,self.op = ps.imgui.Combo('operation',self.op,ops)
 
         # Display number of vertices and facets in result mesh
@@ -183,16 +194,16 @@ class MyApplication(Application):
         self.set_shape(self.S1, self.shape1)
         self.S2 = OGF.MeshGrob('S2')
         self.set_shape(self.S2, self.shape2)
-        self.R = OGF.MeshGrob('R')
-        self.set_shape(self.R, self.shape1)
+        MeshGrobOps.scale_object(self.S2,0.3)
         MeshGrobOps.translate_object(self.S2,[1,0,0])
+        self.R = OGF.MeshGrob('R')
+        if self.op == UNION:
+            self.R.clear()
+        else:
+            self.set_shape(self.R, self.shape1)
 
     def step_forward(self):
         self.frame = self.frame+1
-        self.dirty = True
-
-    def step_backward(self):
-        self.frame = self.frame-1
         self.dirty = True
 
     def update(self):
@@ -206,16 +217,20 @@ class MyApplication(Application):
         self.S2.clear()
         self.set_shape(self.S2, self.shape2)
         MeshGrobOps.scale_object(self.S2,0.3)
+        MeshGrobOps.rotate_object(self.S2, 0.1*self.frame, 'Z')
         MeshGrobOps.translate_object(
             self.S2,[1.0+0.05*(math.sin(self.frame*0.01)),0,0]
         )
         MeshGrobOps.translate_object(
             self.S2,[0,0.7*math.sin(self.frame*0.01),0]
         )
-        MeshGrobOps.rotate_object(self.S2,0.1*self.frame)
+        MeshGrobOps.rotate_object(self.S2, 0.1*self.frame, 'Y')
         self.R.I.Mesh.copy('S1')
+        op = 'A-B'
+        if self.op == UNION:
+            op = 'A+B'
         self.S1.I.Surface.compute_boolean_operation(
-            self.S2, self.R, 'A-B',
+            self.S2, self.R, op,
             False, False,
             MESH_BOOL_OPS_NO_CHECK_NEIGHBORS
         )
@@ -227,7 +242,7 @@ class MyApplication(Application):
         self.register_graphite_objects()
         ps.get_surface_mesh('S1').set_transparency(0.5)
         ps.get_surface_mesh('S2').set_transparency(0.5)
-        ps.get_surface_mesh('R').set_edge_width(1.3)
+        ps.get_surface_mesh('R').set_edge_width(1.1)
         if self.animate:
             self.step_forward()
 
