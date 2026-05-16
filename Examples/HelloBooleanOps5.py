@@ -54,10 +54,11 @@ class Application:
         @param[in] scene_graph the Graphite scene graph
         """
         for objname in dir(self.scene_graph.objects):
-            try:
-               ps.remove_surface_mesh(objname)
-            except:
-               None
+            if not objname.startswith('_'):
+                try:
+                    ps.remove_surface_mesh(objname)
+                except:
+                    None
 
     def main_loop(self):
         """
@@ -126,6 +127,8 @@ class MyApplication(Application):
         self.shape1 = CYLINDER
         self.shape2 = CUBE
         self.animate = False
+        self.hull = False
+        self.save = False
         self.frame = 0
         self.reset()
 
@@ -163,6 +166,12 @@ class MyApplication(Application):
         ps.imgui.SameLine()
         _,self.animate = ps.imgui.Checkbox('animate',self.animate)
 
+        ps.imgui.SameLine()
+        _,self.hull = ps.imgui.Checkbox('hull',self.hull)
+
+        ps.imgui.SameLine()
+        _,self.save = ps.imgui.Checkbox('save',self.save)
+
         if not self.animate:
             ps.imgui.SameLine()
             if ps.imgui.Button('>'):
@@ -193,15 +202,13 @@ class MyApplication(Application):
         self.set_shape(self.S1, self.shape1)
         self.S2 = OGF.MeshGrob('S2')
         self.set_shape(self.S2, self.shape2)
-        MeshGrobOps.scale_object(self.S2,0.3)
-        MeshGrobOps.translate_object(self.S2,[1,0,0])
+        self.transform_object(self.S2,0);
         self.R = OGF.MeshGrob('R')
         if self.op == UNION:
             self.R.clear()
         else:
             self.set_shape(self.R, self.shape1)
-        self.tmp1 = OGF.MeshGrob('tmp1_')
-        self.tmp2 = OGF.MeshGrob('tmp2_')
+        self.tmp = OGF.MeshGrob('_tmp')
 
     def step_forward(self):
         self.frame = self.frame+1
@@ -229,17 +236,30 @@ class MyApplication(Application):
             return
         self.S2.clear()
         self.set_shape(self.S2, self.shape2)
-        alpha = self.frame*2.0
         self.transform_object(self.S2, self.frame*2)
+        if self.hull:
+            self.set_shape(self.tmp, self.shape2)
+            self.transform_object(self.tmp, (self.frame+1)*2)
+            self.S2.I.Mesh.append('_tmp')
+            self.S2.I.Points.convex_hull()
         self.R.I.Mesh.copy('S1')
+        if self.save:
+            self.S1.save("S1.meshb")
+            self.S2.save("S2.meshb")
         op = 'A-B'
         if self.op == UNION:
             op = 'A+B'
-        self.S1.I.Surface.compute_boolean_operation(
-            self.S2, self.R, op,
-            False, False,
-            MESH_BOOL_OPS_NO_CHECK_NEIGHBORS
-        )
+        if self.hull:
+            self.S1.I.Surface.compute_boolean_operation(
+                self.S2, self.R, op,
+                True, False
+            )
+        else:
+            self.S1.I.Surface.compute_boolean_operation(
+                self.S2, self.R, op,
+                False, False,
+                MESH_BOOL_OPS_NO_CHECK_NEIGHBORS
+            )
         self.dirty = False
 
     def draw_scene(self):
