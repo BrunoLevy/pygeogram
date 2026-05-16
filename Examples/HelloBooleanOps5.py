@@ -45,7 +45,8 @@ class Application:
         @param[in] scene_graph the Graphite scene graph
         """
         for objname in dir(self.scene_graph.objects):
-            self.register_graphite_object(self.scene_graph.resolve(objname))
+            if not objname.startswith('_'):
+               self.register_graphite_object(self.scene_graph.resolve(objname))
 
     def unregister_graphite_objects(self):
         """
@@ -114,9 +115,7 @@ class MeshGrobOps:
 
 # constants for boolean ops and shapes
 UNION=0; DIFFERENCE=1; INTERSECTION=2
-
 SPHERE=0; CUBE=1; ICOSAHEDRON=2; CYLINDER=3; BUNNY=4
-
 
 
 class MyApplication(Application):
@@ -135,7 +134,7 @@ class MyApplication(Application):
         mesh.I.Editor.clear()
         if shape == SPHERE:
             mesh.I.Shapes.create_sphere(
-                center, radius=1.0, precision=3
+                center, radius=1.0, precision=2
             )
         elif shape == CUBE:
             mesh.I.Shapes.create_box(
@@ -201,10 +200,24 @@ class MyApplication(Application):
             self.R.clear()
         else:
             self.set_shape(self.R, self.shape1)
+        self.tmp1 = OGF.MeshGrob('tmp1_')
+        self.tmp2 = OGF.MeshGrob('tmp2_')
 
     def step_forward(self):
         self.frame = self.frame+1
         self.dirty = True
+
+    def transform_object(self, M: OGF.MeshGrob, alpha: float):
+        MeshGrobOps.scale_object(M,0.3)
+        MeshGrobOps.rotate_object(M, 0.1*alpha, 'Z')
+        MeshGrobOps.translate_object(
+            M,[1.0+0.05*(math.sin(alpha*0.01)),0,0]
+        )
+        MeshGrobOps.translate_object(
+            M,[0,0.7*math.sin(alpha*0.01),0]
+        )
+        MeshGrobOps.rotate_object(M, 0.1*alpha, 'Y')
+
 
     def update(self):
         MESH_BOOL_OPS_DEFAULT = 0
@@ -216,15 +229,8 @@ class MyApplication(Application):
             return
         self.S2.clear()
         self.set_shape(self.S2, self.shape2)
-        MeshGrobOps.scale_object(self.S2,0.3)
-        MeshGrobOps.rotate_object(self.S2, 0.1*self.frame, 'Z')
-        MeshGrobOps.translate_object(
-            self.S2,[1.0+0.05*(math.sin(self.frame*0.01)),0,0]
-        )
-        MeshGrobOps.translate_object(
-            self.S2,[0,0.7*math.sin(self.frame*0.01),0]
-        )
-        MeshGrobOps.rotate_object(self.S2, 0.1*self.frame, 'Y')
+        alpha = self.frame*2.0
+        self.transform_object(self.S2, self.frame*2)
         self.R.I.Mesh.copy('S1')
         op = 'A-B'
         if self.op == UNION:
