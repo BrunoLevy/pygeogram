@@ -116,7 +116,7 @@ class MeshGrobOps:
 
 # constants for boolean ops and shapes
 UNION=0; DIFFERENCE=1; INTERSECTION=2
-SPHERE=0; CUBE=1; ICOSAHEDRON=2; CYLINDER=3; BUNNY=4
+SPHERE=0; CUBE=1; ICOSAHEDRON=2; CYLINDER=3; BUNNY=4; TORUS=5
 
 
 class MyApplication(Application):
@@ -129,6 +129,8 @@ class MyApplication(Application):
         self.animate = False
         self.hull = False
         self.save = False
+        self.rotate_only = False
+        self.auto_style = True
         self.frame = 0
         self.reset()
 
@@ -154,6 +156,8 @@ class MyApplication(Application):
             mesh.I.Surface.triangulate() # needed by boolean ops
         elif shape == BUNNY:
             mesh.load('bunny_0_2k.stl')
+        elif shape == TORUS:
+            mesh.I.Experiment.create_torus(R=1.0, r=0.3, Nu=20, Nv=40)
 
     def draw_GUI(self):
         if ps.imgui.Button('quit'):
@@ -166,19 +170,24 @@ class MyApplication(Application):
         ps.imgui.SameLine()
         _,self.animate = ps.imgui.Checkbox('animate',self.animate)
 
+        if not self.animate:
+            ps.imgui.SameLine()
+            if ps.imgui.Button('>'):
+                self.step_forward()
+
         ps.imgui.SameLine()
         _,self.hull = ps.imgui.Checkbox('hull',self.hull)
 
         ps.imgui.SameLine()
         _,self.save = ps.imgui.Checkbox('save',self.save)
 
-        if not self.animate:
-            ps.imgui.SameLine()
-            if ps.imgui.Button('>'):
-                self.step_forward()
+        _,self.rotate_only = ps.imgui.Checkbox('rotate only',self.rotate_only)
+        ps.imgui.SameLine()
+        _,self.auto_style = ps.imgui.Checkbox('auto style',self.auto_style)
+
 
         # The combo-boxes to chose two shapes
-        shapes = ['sphere','cube','icosahedron', 'cylinder', 'bunny']
+        shapes = ['sphere','cube','icosahedron', 'cylinder', 'bunny', 'torus']
         _,self.shape1 = ps.imgui.Combo('shape 1',self.shape1,shapes)
         _,self.shape2 = ps.imgui.Combo('shape 2',self.shape2,shapes)
 
@@ -215,15 +224,20 @@ class MyApplication(Application):
         self.dirty = True
 
     def transform_object(self, M: OGF.MeshGrob, alpha: float):
-        MeshGrobOps.scale_object(M,0.3)
-        MeshGrobOps.rotate_object(M, 0.1*alpha, 'Z')
-        MeshGrobOps.translate_object(
-            M,[1.0+0.05*(math.sin(alpha*0.01)),0,0]
-        )
-        MeshGrobOps.translate_object(
-            M,[0,0.7*math.sin(alpha*0.01),0]
-        )
-        MeshGrobOps.rotate_object(M, 0.1*alpha, 'Y')
+        if self.rotate_only:
+            MeshGrobOps.rotate_object(M, 0.1*alpha, 'Z')
+            MeshGrobOps.rotate_object(M, 0.3*alpha, 'Y')
+            MeshGrobOps.rotate_object(M, 0.2*alpha, 'X')
+        else:
+            MeshGrobOps.scale_object(M,0.3)
+            MeshGrobOps.rotate_object(M, 0.1*alpha, 'Z')
+            MeshGrobOps.translate_object(
+                M,[1.0+0.05*(math.sin(alpha*0.01)),0,0]
+            )
+            MeshGrobOps.translate_object(
+                M,[0,0.7*math.sin(alpha*0.01),0]
+            )
+            MeshGrobOps.rotate_object(M, 0.1*alpha, 'Y')
 
 
     def update(self):
@@ -252,13 +266,14 @@ class MyApplication(Application):
         if self.hull:
             self.S1.I.Surface.compute_boolean_operation(
                 self.S2, self.R, op,
-                True, False
+                True, False,
+                MESH_BOOL_OPS_NO_SIMPLIFY
             )
         else:
             self.S1.I.Surface.compute_boolean_operation(
                 self.S2, self.R, op,
                 False, False,
-                MESH_BOOL_OPS_NO_CHECK_NEIGHBORS
+                MESH_BOOL_OPS_NO_SIMPLIFY | MESH_BOOL_OPS_NO_CHECK_NEIGHBORS
             )
         self.dirty = False
 
@@ -266,9 +281,10 @@ class MyApplication(Application):
         self.unregister_graphite_objects()
         self.update()
         self.register_graphite_objects()
-        ps.get_surface_mesh('S1').set_transparency(0.5)
-        ps.get_surface_mesh('S2').set_transparency(0.5)
-        ps.get_surface_mesh('R').set_edge_width(1.1)
+        if self.auto_style:
+            ps.get_surface_mesh('S1').set_transparency(0.5)
+            ps.get_surface_mesh('S2').set_transparency(0.5)
+            ps.get_surface_mesh('R').set_edge_width(1.1)
         if self.animate:
             self.step_forward()
 
